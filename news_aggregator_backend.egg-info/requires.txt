@@ -1,6 +1,11 @@
+alembic<2.0,>=1.16
+asyncpg<1.0,>=0.30
 fastapi<1.0,>=0.116
+pydantic-settings<3.0,>=2.10
+sqlalchemy[asyncio]<3.0,>=2.0.43
 uvicorn[standard]<1.0,>=0.35
 
 [dev]
+aiosqlite<1.0,>=0.21
 httpx<1.0,>=0.28
 pytest<9.0,>=8.4
