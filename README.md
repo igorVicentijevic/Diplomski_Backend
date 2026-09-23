@@ -18,6 +18,10 @@ uvicorn app.main:app --reload
 The API is available at `http://127.0.0.1:8000`, with interactive documentation at
 `http://127.0.0.1:8000/docs`.
 
+When the API starts, it immediately reads the RTS news RSS feed and stores
+new or changed articles in PostgreSQL. The feed is checked again every 15
+minutes while the API process is running.
+
 Available endpoints:
 
 - `GET /`
