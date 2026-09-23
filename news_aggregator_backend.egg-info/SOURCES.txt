@@ -1,0 +1,10 @@
+README.md
+pyproject.toml
+app/__init__.py
+app/main.py
+news_aggregator_backend.egg-info/PKG-INFO
+news_aggregator_backend.egg-info/SOURCES.txt
+news_aggregator_backend.egg-info/dependency_links.txt
+news_aggregator_backend.egg-info/requires.txt
+news_aggregator_backend.egg-info/top_level.txt
+tests/test_main.py
