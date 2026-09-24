@@ -7,11 +7,15 @@ from app.api.routes.articles import router as articles_router
 from app.database.session import AsyncSessionFactory
 from app.news_sources.RssFeedParser import RssFeedParser
 from app.news_sources.RtsNewsSource import RtsNewsSource
+from app.pipeline.NewsArticleProcessingPipeline import (
+    NewsArticleProcessingPipeline,
+)
+from app.pipeline.steps.ArticleDeduplicationStep import (
+    ArticleDeduplicationStep,
+)
+from app.pipeline.steps.UrlNormalizationStep import UrlNormalizationStep
 from app.services.news_sources.ArticleUrlNormalizer import (
     ArticleUrlNormalizer,
-)
-from app.services.news_sources.NewsArticleDeduplicator import (
-    NewsArticleDeduplicator,
 )
 from app.services.news_sources.NewsArticleMapper import NewsArticleMapper
 from app.services.news_sources.NewsSourcePollingService import (
@@ -19,6 +23,12 @@ from app.services.news_sources.NewsSourcePollingService import (
 )
 
 article_url_normalizer = ArticleUrlNormalizer()
+news_article_processing_pipeline = NewsArticleProcessingPipeline(
+    steps=[
+        UrlNormalizationStep(article_url_normalizer),
+        ArticleDeduplicationStep(),
+    ]
+)
 news_source_polling_service = NewsSourcePollingService(
     sources=[
         RtsNewsSource(
@@ -26,10 +36,8 @@ news_source_polling_service = NewsSourcePollingService(
         )
     ],
     session_factory=AsyncSessionFactory,
-    article_mapper=NewsArticleMapper(article_url_normalizer),
-    article_deduplicator=NewsArticleDeduplicator(
-        article_url_normalizer
-    ),
+    article_mapper=NewsArticleMapper(),
+    processing_pipeline=news_article_processing_pipeline,
 )
 
 

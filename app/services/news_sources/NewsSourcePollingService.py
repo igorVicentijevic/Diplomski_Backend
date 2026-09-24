@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.articles.repositories.ArticleRepository import ArticleRepository
 from app.news_sources.NewsSource import NewsSource
-from app.services.news_sources.NewsArticleDeduplicator import (
-    NewsArticleDeduplicator,
+from app.pipeline.NewsArticleProcessingPipeline import (
+    NewsArticleProcessingPipeline,
 )
 from app.services.news_sources.NewsArticleMapper import NewsArticleMapper
 
@@ -22,13 +22,13 @@ class NewsSourcePollingService:
         sources: list[NewsSource],
         session_factory: async_sessionmaker[AsyncSession],
         article_mapper: NewsArticleMapper,
-        article_deduplicator: NewsArticleDeduplicator,
+        processing_pipeline: NewsArticleProcessingPipeline,
         refresh_interval_seconds: int = REFRESH_INTERVAL_SECONDS,
     ) -> None:
         self._sources = sources
         self._session_factory = session_factory
         self._article_mapper = article_mapper
-        self._article_deduplicator = article_deduplicator
+        self._processing_pipeline = processing_pipeline
         self._refresh_interval_seconds = refresh_interval_seconds
         self._task: asyncio.Task[None] | None = None
 
@@ -55,14 +55,15 @@ class NewsSourcePollingService:
             try:
                 #fetching from RSS feed
                 articles = await source.fetch_articles()
-                unique_articles = self._article_deduplicator.deduplicate(
+                
+                processed_articles = await self._processing_pipeline.process(
                     articles
                 )
 
                 #convert all fetched articles to domain models
                 models = [
-                    self._article_mapper.to_model(article)
-                    for article in unique_articles
+                    self._article_mapper.to_model(context)
+                    for context in processed_articles
                 ]
 
                 #persist the converted domain models to the database

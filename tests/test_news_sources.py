@@ -15,11 +15,16 @@ from app.database.Base import Base
 from app.news_sources.NewsSource import NewsSource
 from app.news_sources.RssFeedParser import RssFeedParser
 from app.news_sources.models.NewsArticle import NewsArticle
+from app.pipeline.ArticleProcessingContext import ArticleProcessingContext
+from app.pipeline.NewsArticleProcessingPipeline import (
+    NewsArticleProcessingPipeline,
+)
+from app.pipeline.steps.ArticleDeduplicationStep import (
+    ArticleDeduplicationStep,
+)
+from app.pipeline.steps.UrlNormalizationStep import UrlNormalizationStep
 from app.services.news_sources.ArticleUrlNormalizer import (
     ArticleUrlNormalizer,
-)
-from app.services.news_sources.NewsArticleDeduplicator import (
-    NewsArticleDeduplicator,
 )
 from app.services.news_sources.NewsArticleMapper import NewsArticleMapper
 from app.services.news_sources.NewsSourcePollingService import (
@@ -102,30 +107,47 @@ def test_article_url_normalizer_removes_tracking_data() -> None:
     assert normalized_url == "https://example.com/article?category=tech"
 
 
-def test_news_article_deduplicator_uses_normalized_url() -> None:
-    deduplicator = NewsArticleDeduplicator(ArticleUrlNormalizer())
-    original = create_news_article(
-        "https://example.com/article?utm_source=first",
-        title="Original",
-    )
-    updated = create_news_article(
-        "https://example.com/article/?fbclid=value",
-        title="Updated",
-    )
+def test_news_article_processing_pipeline() -> None:
+    async def run_test() -> None:
+        pipeline = NewsArticleProcessingPipeline(
+            steps=[
+                UrlNormalizationStep(ArticleUrlNormalizer()),
+                ArticleDeduplicationStep(),
+            ]
+        )
+        original = create_news_article(
+            "https://example.com/article?utm_source=first",
+            title="Original",
+        )
+        updated = create_news_article(
+            "https://example.com/article/?fbclid=value",
+            title="Updated",
+        )
 
-    unique_articles = deduplicator.deduplicate([original, updated])
+        processed_articles = await pipeline.process([original, updated])
 
-    assert unique_articles == [updated]
+        assert len(processed_articles) == 1
+        assert processed_articles[0].article == updated
+        assert (
+            processed_articles[0].normalized_url
+            == "https://example.com/article"
+        )
+
+    asyncio.run(run_test())
 
 
 def test_news_article_mapper_creates_stable_model() -> None:
-    mapper = NewsArticleMapper(ArticleUrlNormalizer())
     article = create_news_article(
         "https://example.com/article/?utm_source=test"
     )
+    context = ArticleProcessingContext(
+        article=article,
+        normalized_url="https://example.com/article",
+    )
+    mapper = NewsArticleMapper()
 
-    first_model = mapper.to_model(article)
-    second_model = mapper.to_model(article)
+    first_model = mapper.to_model(context)
+    second_model = mapper.to_model(context)
 
     assert first_model.id == second_model.id
     assert first_model.id.startswith("test-")
@@ -158,13 +180,17 @@ def test_polling_service_upserts_articles(tmp_path) -> None:
             ]
         )
         article_url_normalizer = ArticleUrlNormalizer()
+        processing_pipeline = NewsArticleProcessingPipeline(
+            steps=[
+                UrlNormalizationStep(article_url_normalizer),
+                ArticleDeduplicationStep(),
+            ]
+        )
         service = NewsSourcePollingService(
             sources=[source],
             session_factory=session_factory,
-            article_mapper=NewsArticleMapper(article_url_normalizer),
-            article_deduplicator=NewsArticleDeduplicator(
-                article_url_normalizer
-            ),
+            article_mapper=NewsArticleMapper(),
+            processing_pipeline=processing_pipeline,
         )
 
         assert await service.refresh_once() == 1

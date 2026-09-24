@@ -1,35 +1,37 @@
 import hashlib
 
 from app.articles.models.ArticleModel import ArticleModel
-from app.news_sources.models.NewsArticle import NewsArticle
-from app.services.news_sources.ArticleUrlNormalizer import (
-    ArticleUrlNormalizer,
+from app.pipeline.ArticleProcessingContext import (
+    ArticleProcessingContext,
 )
 
 
 class NewsArticleMapper:
-    def __init__(self, url_normalizer: ArticleUrlNormalizer) -> None:
-        self._url_normalizer = url_normalizer
-
-    def to_model(self, article: NewsArticle) -> ArticleModel:
-        
-        normalized_url = self._url_normalizer.normalize(
-            article.article_url
-        )
+    def to_model(
+        self,
+        context: ArticleProcessingContext,
+    ) -> ArticleModel:
+        if context.normalized_url is None:
+            raise ValueError(
+                "Article URL must be normalized before mapping."
+            )
 
         article_hash = hashlib.sha256(
-            f"{article.source_id}:{normalized_url}".encode("utf-8")
+            (
+                f"{context.article.source_id}:"
+                f"{context.normalized_url}"
+            ).encode("utf-8")
         ).hexdigest()
 
         return ArticleModel(
-            id=f"{article.source_id}-{article_hash}",
-            title=article.title,
-            summary=article.summary,
-            source=article.source_name,
-            category=article.category,
-            published_at=article.published_at,
-            image_url=article.image_url,
-            article_url=article.article_url,
-            normalized_url=normalized_url,
+            id=f"{context.article.source_id}-{article_hash}",
+            title=context.article.title,
+            summary=context.article.summary,
+            source=context.article.source_name,
+            category=context.article.category,
+            published_at=context.article.published_at,
+            image_url=context.article.image_url,
+            article_url=context.article.article_url,
+            normalized_url=context.normalized_url,
             related_city_ids=[],
         )
