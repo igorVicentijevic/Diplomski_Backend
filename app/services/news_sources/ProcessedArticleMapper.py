@@ -29,6 +29,11 @@ class ProcessedArticleMapper:
                 "Article tone must be analyzed before mapping."
             )
 
+        if context.tone_analysis_metadata is None:
+            raise ValueError(
+                "Article tone metadata must exist before mapping."
+            )
+
         article = context.article
         article_hash = hashlib.sha256(
             (
@@ -61,10 +66,19 @@ class ProcessedArticleMapper:
             neutral_percentage=(
                 context.tone_analysis.neutral_percentage
             ),
+            input_hash=context.tone_analysis_metadata.input_hash,
+            provider=context.tone_analysis_metadata.provider,
+            model_name=context.tone_analysis_metadata.model_name,
+            prompt_version=(
+                context.tone_analysis_metadata.prompt_version
+            ),
         )
         analysis_model = ArticleAnalysisModel(
             article_id=article_id,
-            processed_at=datetime.now(UTC),
+            processed_at=(
+                context.tone_analysis_processed_at
+                or datetime.now(UTC)
+            ),
             tone=tone_model,
         )
 

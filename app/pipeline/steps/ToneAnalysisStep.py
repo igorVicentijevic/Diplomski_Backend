@@ -22,6 +22,9 @@ class ToneAnalysisStep(ArticleTransformationStep):
         self,
         context: ArticleProcessingContext,
     ) -> ArticleProcessingContext:
+        if context.tone_analysis is not None:
+            return context
+
         tone_analysis = await self._strategy.analyze(context.article)
 
         return replace(

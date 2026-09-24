@@ -18,12 +18,17 @@ class NewsArticleProcessingPipeline:
         self,
         articles: list[NewsArticle],
     ) -> list[ArticleProcessingContext]:
-        
         contexts = [
             ArticleProcessingContext(article=article)
             for article in articles
         ]
 
+        return await self.process_contexts(contexts)
+
+    async def process_contexts(
+        self,
+        contexts: list[ArticleProcessingContext],
+    ) -> list[ArticleProcessingContext]:
         for step in self._steps:
             contexts = await step.process(contexts)
 

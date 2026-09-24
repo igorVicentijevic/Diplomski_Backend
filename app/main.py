@@ -30,12 +30,22 @@ from app.services.news_sources.NewsSourcePollingService import (
 from app.tone_analysis.strategies.RandomToneAnalysisStrategy import (
     RandomToneAnalysisStrategy,
 )
+from app.tone_analysis.services.ExistingToneAnalysisLoader import (
+    ExistingToneAnalysisLoader,
+)
+from app.tone_analysis.services.ToneAnalysisInputHasher import (
+    ToneAnalysisInputHasher,
+)
 
 article_url_normalizer = ArticleUrlNormalizer()
-news_article_processing_pipeline = NewsArticleProcessingPipeline(
+news_article_preprocessing_pipeline = NewsArticleProcessingPipeline(
     steps=[
         UrlNormalizationStep(article_url_normalizer),
         ArticleDeduplicationStep(),
+    ]
+)
+news_article_analysis_pipeline = NewsArticleProcessingPipeline(
+    steps=[
         ToneAnalysisStep(RandomToneAnalysisStrategy()),
     ]
 )
@@ -45,7 +55,15 @@ news_source_polling_service = NewsSourcePollingService(
             parser=RssFeedParser(),
         )
     ],
-    processing_pipeline=news_article_processing_pipeline,
+    preprocessing_pipeline=news_article_preprocessing_pipeline,
+    analysis_pipeline=news_article_analysis_pipeline,
+    existing_tone_analysis_loader=ExistingToneAnalysisLoader(
+        session_factory=AsyncSessionFactory,
+        input_hasher=ToneAnalysisInputHasher(),
+        provider="random",
+        model_name="random",
+        prompt_version="v1",
+    ),
     persistence_service=ArticlePersistenceService(
         session_factory=AsyncSessionFactory,
         article_mapper=ProcessedArticleMapper(),

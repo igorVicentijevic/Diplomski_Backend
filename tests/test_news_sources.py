@@ -50,11 +50,20 @@ from app.tone_analysis.models.ToneAnalysisResult import (
 from app.tone_analysis.models.LlmToneAnalysisResponse import (
     LlmToneAnalysisResponse,
 )
+from app.tone_analysis.models.ToneAnalysisMetadata import (
+    ToneAnalysisMetadata,
+)
 from app.tone_analysis.strategies.LlmToneAnalysisStrategy import (
     LlmToneAnalysisStrategy,
 )
 from app.tone_analysis.strategies.RandomToneAnalysisStrategy import (
     RandomToneAnalysisStrategy,
+)
+from app.tone_analysis.services.ExistingToneAnalysisLoader import (
+    ExistingToneAnalysisLoader,
+)
+from app.tone_analysis.services.ToneAnalysisInputHasher import (
+    ToneAnalysisInputHasher,
 )
 
 
@@ -276,6 +285,32 @@ def test_tone_analysis_step_updates_context() -> None:
     asyncio.run(run_test())
 
 
+def test_tone_analysis_step_reuses_existing_result() -> None:
+    async def run_test() -> None:
+        existing_result = ToneAnalysisResult(
+            negative_percentage=20,
+            positive_percentage=30,
+            neutral_percentage=50,
+        )
+        context = ArticleProcessingContext(
+            article=create_news_article(
+                "https://example.com/article"
+            ),
+            tone_analysis=existing_result,
+        )
+        strategy = Mock()
+        strategy.analyze = AsyncMock()
+
+        transformed_context = await ToneAnalysisStep(
+            strategy
+        ).transform(context)
+
+        assert transformed_context is context
+        strategy.analyze.assert_not_awaited()
+
+    asyncio.run(run_test())
+
+
 def test_news_article_processing_pipeline() -> None:
     async def run_test() -> None:
         pipeline = NewsArticleProcessingPipeline(
@@ -317,6 +352,12 @@ def test_news_article_mapper_creates_stable_model() -> None:
             positive_percentage=30,
             neutral_percentage=50,
         ),
+        tone_analysis_metadata=ToneAnalysisMetadata(
+            input_hash="input-hash",
+            provider="random",
+            model_name="random",
+            prompt_version="v1",
+        ),
     )
     mapper = ProcessedArticleMapper()
 
@@ -334,6 +375,10 @@ def test_news_article_mapper_creates_stable_model() -> None:
     assert first_models.analysis.tone.negative_percentage == 20
     assert first_models.analysis.tone.positive_percentage == 30
     assert first_models.analysis.tone.neutral_percentage == 50
+    assert first_models.analysis.tone.input_hash == "input-hash"
+    assert first_models.analysis.tone.provider == "random"
+    assert first_models.analysis.tone.model_name == "random"
+    assert first_models.analysis.tone.prompt_version == "v1"
 
 
 def test_polling_service_upserts_articles(tmp_path) -> None:
@@ -361,18 +406,33 @@ def test_polling_service_upserts_articles(tmp_path) -> None:
             ]
         )
         article_url_normalizer = ArticleUrlNormalizer()
-        processing_pipeline = NewsArticleProcessingPipeline(
+        preprocessing_pipeline = NewsArticleProcessingPipeline(
             steps=[
                 UrlNormalizationStep(article_url_normalizer),
                 ArticleDeduplicationStep(),
-                ToneAnalysisStep(
-                    RandomToneAnalysisStrategy(random.Random(42))
-                ),
             ]
+        )
+        tone_result = ToneAnalysisResult(
+            negative_percentage=20,
+            positive_percentage=30,
+            neutral_percentage=50,
+        )
+        strategy = Mock()
+        strategy.analyze = AsyncMock(return_value=tone_result)
+        analysis_pipeline = NewsArticleProcessingPipeline(
+            steps=[ToneAnalysisStep(strategy)]
         )
         service = NewsSourcePollingService(
             sources=[source],
-            processing_pipeline=processing_pipeline,
+            preprocessing_pipeline=preprocessing_pipeline,
+            analysis_pipeline=analysis_pipeline,
+            existing_tone_analysis_loader=ExistingToneAnalysisLoader(
+                session_factory=session_factory,
+                input_hasher=ToneAnalysisInputHasher(),
+                provider="random",
+                model_name="random",
+                prompt_version="v1",
+            ),
             persistence_service=ArticlePersistenceService(
                 session_factory=session_factory,
                 article_mapper=ProcessedArticleMapper(),
@@ -381,6 +441,16 @@ def test_polling_service_upserts_articles(tmp_path) -> None:
 
         assert await service.refresh_once() == 1
         assert await service.refresh_once() == 0
+        assert strategy.analyze.await_count == 1
+
+        source.fetch_articles.return_value = [
+            create_news_article(
+                "https://example.com/article/?utm_source=test",
+                title="Updated article",
+            )
+        ]
+        assert await service.refresh_once() == 1
+        assert strategy.analyze.await_count == 2
 
         async with session_factory() as session:
             article_count = await session.scalar(
@@ -401,6 +471,10 @@ def test_polling_service_upserts_articles(tmp_path) -> None:
         assert analysis.article_id == article.id
         assert tone_analysis is not None
         assert tone_analysis.article_id == article.id
+        assert tone_analysis.input_hash is not None
+        assert tone_analysis.provider == "random"
+        assert tone_analysis.model_name == "random"
+        assert tone_analysis.prompt_version == "v1"
         assert abs(
             tone_analysis.negative_percentage
             + tone_analysis.positive_percentage

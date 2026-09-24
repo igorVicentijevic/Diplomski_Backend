@@ -9,6 +9,9 @@ from app.pipeline.NewsArticleProcessingPipeline import (
 from app.services.news_sources.ArticlePersistenceService import (
     ArticlePersistenceService,
 )
+from app.tone_analysis.services.ExistingToneAnalysisLoader import (
+    ExistingToneAnalysisLoader,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -19,12 +22,18 @@ class NewsSourcePollingService:
     def __init__(
         self,
         sources: list[NewsSource],
-        processing_pipeline: NewsArticleProcessingPipeline,
+        preprocessing_pipeline: NewsArticleProcessingPipeline,
+        analysis_pipeline: NewsArticleProcessingPipeline,
+        existing_tone_analysis_loader: ExistingToneAnalysisLoader,
         persistence_service: ArticlePersistenceService,
         refresh_interval_seconds: int = REFRESH_INTERVAL_SECONDS,
     ) -> None:
         self._sources = sources
-        self._processing_pipeline = processing_pipeline
+        self._preprocessing_pipeline = preprocessing_pipeline
+        self._analysis_pipeline = analysis_pipeline
+        self._existing_tone_analysis_loader = (
+            existing_tone_analysis_loader
+        )
         self._persistence_service = persistence_service
         self._refresh_interval_seconds = refresh_interval_seconds
         self._task: asyncio.Task[None] | None = None
@@ -52,9 +61,18 @@ class NewsSourcePollingService:
             try:
                 #fetching from RSS feed
                 articles = await source.fetch_articles()
-                
-                processed_articles = await self._processing_pipeline.process(
-                    articles
+                preprocessed_articles = (
+                    await self._preprocessing_pipeline.process(articles)
+                )
+                prepared_articles = (
+                    await self._existing_tone_analysis_loader.load_existing(
+                        preprocessed_articles
+                    )
+                )
+                processed_articles = (
+                    await self._analysis_pipeline.process_contexts(
+                        prepared_articles
+                    )
                 )
 
                 #persist the converted domain models to the database

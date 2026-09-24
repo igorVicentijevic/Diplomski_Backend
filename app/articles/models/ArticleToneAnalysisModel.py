@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Float, ForeignKey
+from sqlalchemy import Float, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.Base import Base
@@ -21,6 +21,22 @@ class ArticleToneAnalysisModel(Base):
     negative_percentage: Mapped[float] = mapped_column(Float)
     positive_percentage: Mapped[float] = mapped_column(Float)
     neutral_percentage: Mapped[float] = mapped_column(Float)
+    input_hash: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+    provider: Mapped[str | None] = mapped_column(
+        String(32),
+        nullable=True,
+    )
+    model_name: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    prompt_version: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
     analysis: Mapped["ArticleAnalysisModel"] = relationship(
         back_populates="tone",
     )
