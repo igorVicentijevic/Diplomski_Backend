@@ -13,6 +13,7 @@ from app.pipeline.NewsArticleProcessingPipeline import (
 from app.pipeline.steps.ArticleDeduplicationStep import (
     ArticleDeduplicationStep,
 )
+from app.pipeline.steps.ToneAnalysisStep import ToneAnalysisStep
 from app.pipeline.steps.UrlNormalizationStep import UrlNormalizationStep
 from app.services.news_sources.ArticleUrlNormalizer import (
     ArticleUrlNormalizer,
@@ -21,12 +22,16 @@ from app.services.news_sources.NewsArticleMapper import NewsArticleMapper
 from app.services.news_sources.NewsSourcePollingService import (
     NewsSourcePollingService,
 )
+from app.tone_analysis.strategies.RandomToneAnalysisStrategy import (
+    RandomToneAnalysisStrategy,
+)
 
 article_url_normalizer = ArticleUrlNormalizer()
 news_article_processing_pipeline = NewsArticleProcessingPipeline(
     steps=[
         UrlNormalizationStep(article_url_normalizer),
         ArticleDeduplicationStep(),
+        ToneAnalysisStep(RandomToneAnalysisStrategy()),
     ]
 )
 news_source_polling_service = NewsSourcePollingService(

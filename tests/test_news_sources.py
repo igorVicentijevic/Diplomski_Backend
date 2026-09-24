@@ -1,4 +1,5 @@
 import asyncio
+import random
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, Mock
 
@@ -22,6 +23,7 @@ from app.pipeline.NewsArticleProcessingPipeline import (
 from app.pipeline.steps.ArticleDeduplicationStep import (
     ArticleDeduplicationStep,
 )
+from app.pipeline.steps.ToneAnalysisStep import ToneAnalysisStep
 from app.pipeline.steps.UrlNormalizationStep import UrlNormalizationStep
 from app.services.news_sources.ArticleUrlNormalizer import (
     ArticleUrlNormalizer,
@@ -29,6 +31,12 @@ from app.services.news_sources.ArticleUrlNormalizer import (
 from app.services.news_sources.NewsArticleMapper import NewsArticleMapper
 from app.services.news_sources.NewsSourcePollingService import (
     NewsSourcePollingService,
+)
+from app.tone_analysis.models.ToneAnalysisResult import (
+    ToneAnalysisResult,
+)
+from app.tone_analysis.strategies.RandomToneAnalysisStrategy import (
+    RandomToneAnalysisStrategy,
 )
 
 
@@ -105,6 +113,48 @@ def test_article_url_normalizer_removes_tracking_data() -> None:
     )
 
     assert normalized_url == "https://example.com/article?category=tech"
+
+
+def test_random_tone_analysis_strategy_returns_percentages() -> None:
+    async def run_test() -> None:
+        strategy = RandomToneAnalysisStrategy(random.Random(42))
+
+        result = await strategy.analyze(
+            create_news_article("https://example.com/article")
+        )
+        percentages = (
+            result.negative_percentage,
+            result.positive_percentage,
+            result.neutral_percentage,
+        )
+
+        assert all(0 <= value <= 100 for value in percentages)
+        assert abs(sum(percentages) - 100) < 0.01
+
+    asyncio.run(run_test())
+
+
+def test_tone_analysis_step_updates_context() -> None:
+    async def run_test() -> None:
+        article = create_news_article("https://example.com/article")
+        context = ArticleProcessingContext(article=article)
+        expected_result = ToneAnalysisResult(
+            negative_percentage=20,
+            positive_percentage=30,
+            neutral_percentage=50,
+        )
+        strategy = Mock()
+        strategy.analyze = AsyncMock(return_value=expected_result)
+
+        transformed_context = await ToneAnalysisStep(
+            strategy
+        ).transform(context)
+
+        assert transformed_context.article == article
+        assert transformed_context.tone_analysis == expected_result
+        strategy.analyze.assert_awaited_once_with(article)
+
+    asyncio.run(run_test())
 
 
 def test_news_article_processing_pipeline() -> None:
