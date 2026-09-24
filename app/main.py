@@ -6,8 +6,16 @@ from fastapi import FastAPI
 from app.api.routes.articles import router as articles_router
 from app.config.Settings import get_settings
 from app.database.session import AsyncSessionFactory
+from app.news_sources.B92NewsSource import B92NewsSource
+from app.news_sources.BetaNewsSource import BetaNewsSource
+from app.news_sources.DanasNewsSource import DanasNewsSource
+from app.news_sources.JuzneVestiNewsSource import JuzneVestiNewsSource
+from app.news_sources.N1NewsSource import N1NewsSource
+from app.news_sources.NovaNewsSource import NovaNewsSource
+from app.news_sources.PolitikaNewsSource import PolitikaNewsSource
 from app.news_sources.RssFeedParser import RssFeedParser
 from app.news_sources.RtsNewsSource import RtsNewsSource
+from app.news_sources.VremeNewsSource import VremeNewsSource
 from app.pipeline.NewsArticleProcessingPipeline import (
     NewsArticleProcessingPipeline,
 )
@@ -52,11 +60,18 @@ news_article_analysis_pipeline = NewsArticleProcessingPipeline(
         ToneAnalysisStep(tone_analysis.strategy),
     ]
 )
+rss_feed_parser = RssFeedParser()
 news_source_polling_service = NewsSourcePollingService(
     sources=[
-        RtsNewsSource(
-            parser=RssFeedParser(),
-        )
+        RtsNewsSource(parser=rss_feed_parser),
+        DanasNewsSource(parser=rss_feed_parser),
+        N1NewsSource(parser=rss_feed_parser),
+        PolitikaNewsSource(parser=rss_feed_parser),
+        B92NewsSource(parser=rss_feed_parser),
+        BetaNewsSource(parser=rss_feed_parser),
+        JuzneVestiNewsSource(parser=rss_feed_parser),
+        NovaNewsSource(parser=rss_feed_parser),
+        VremeNewsSource(parser=rss_feed_parser),
     ],
     preprocessing_pipeline=news_article_preprocessing_pipeline,
     analysis_pipeline=news_article_analysis_pipeline,

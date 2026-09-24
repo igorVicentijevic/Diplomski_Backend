@@ -17,8 +17,17 @@ from app.articles.models.ArticleToneAnalysisModel import (
     ArticleToneAnalysisModel,
 )
 from app.database.Base import Base
+from app.news_sources.B92NewsSource import B92NewsSource
+from app.news_sources.BetaNewsSource import BetaNewsSource
+from app.news_sources.DanasNewsSource import DanasNewsSource
+from app.news_sources.JuzneVestiNewsSource import JuzneVestiNewsSource
+from app.news_sources.N1NewsSource import N1NewsSource
 from app.news_sources.NewsSource import NewsSource
+from app.news_sources.NovaNewsSource import NovaNewsSource
+from app.news_sources.PolitikaNewsSource import PolitikaNewsSource
 from app.news_sources.RssFeedParser import RssFeedParser
+from app.news_sources.RtsNewsSource import RtsNewsSource
+from app.news_sources.VremeNewsSource import VremeNewsSource
 from app.news_sources.models.NewsArticle import NewsArticle
 from app.pipeline.ArticleProcessingContext import ArticleProcessingContext
 from app.pipeline.NewsArticleProcessingPipeline import (
@@ -129,6 +138,25 @@ def test_rss_feed_parser() -> None:
         0,
         tzinfo=UTC,
     )
+
+
+def test_rss_news_sources_have_unique_metadata() -> None:
+    parser = RssFeedParser()
+    sources = [
+        RtsNewsSource(parser),
+        DanasNewsSource(parser),
+        N1NewsSource(parser),
+        PolitikaNewsSource(parser),
+        B92NewsSource(parser),
+        BetaNewsSource(parser),
+        JuzneVestiNewsSource(parser),
+        NovaNewsSource(parser),
+        VremeNewsSource(parser),
+    ]
+
+    assert len({source.id for source in sources}) == len(sources)
+    assert all(source.id for source in sources)
+    assert all(source.display_name for source in sources)
 
 
 def test_article_url_normalizer_removes_tracking_data() -> None:
