@@ -40,6 +40,30 @@ pytest
 Tests use an isolated temporary SQLite database and do not require the
 PostgreSQL container.
 
+## Tone analysis
+
+Tone analysis uses the random strategy by default. Configure it in `.env`:
+
+```env
+TONE_ANALYSIS_PROVIDER=random
+TONE_ANALYSIS_PROMPT_VERSION=v1
+```
+
+To use Groq:
+
+```env
+GROQ_API_KEY=gsk_your_api_key
+TONE_ANALYSIS_PROVIDER=groq
+TONE_ANALYSIS_MODEL=openai/gpt-oss-20b
+TONE_ANALYSIS_PROMPT_VERSION=v1
+TONE_ANALYSIS_TIMEOUT_SECONDS=30
+TONE_ANALYSIS_MAX_RETRIES=2
+```
+
+The application fails during startup when Groq is selected without an API
+key. Existing tone analysis is reused while the article input, provider,
+model, and prompt version remain unchanged.
+
 ## Database commands
 
 Create a migration after changing SQLAlchemy models:

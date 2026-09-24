@@ -1,0 +1,2 @@
+class ToneAnalysisConfigurationError(ValueError):
+    pass

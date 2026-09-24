@@ -1,10 +1,8 @@
 from functools import lru_cache
-
-from pydantic_settings import BaseSettings, SettingsConfigDict
-
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -18,17 +16,14 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-
     groq_api_key: SecretStr | None = None
     tone_analysis_provider: Literal["random", "groq"] = "random"
     tone_analysis_model: str = "openai/gpt-oss-20b"
     tone_analysis_prompt_version: str = "v1"
-    tone_analysis_timeout_seconds: float = 30
-    tone_analysis_max_retries: int = 2
+    tone_analysis_timeout_seconds: float = Field(default=30, gt=0)
+    tone_analysis_max_retries: int = Field(default=2, ge=0)
+
 
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-
-
-

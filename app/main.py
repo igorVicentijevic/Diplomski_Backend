@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.routes.articles import router as articles_router
+from app.config.Settings import get_settings
 from app.database.session import AsyncSessionFactory
 from app.news_sources.RssFeedParser import RssFeedParser
 from app.news_sources.RtsNewsSource import RtsNewsSource
@@ -27,16 +28,18 @@ from app.services.news_sources.ProcessedArticleMapper import (
 from app.services.news_sources.NewsSourcePollingService import (
     NewsSourcePollingService,
 )
-from app.tone_analysis.strategies.RandomToneAnalysisStrategy import (
-    RandomToneAnalysisStrategy,
-)
 from app.tone_analysis.services.ExistingToneAnalysisLoader import (
     ExistingToneAnalysisLoader,
 )
 from app.tone_analysis.services.ToneAnalysisInputHasher import (
     ToneAnalysisInputHasher,
 )
+from app.tone_analysis.factories.ToneAnalysisStrategyFactory import (
+    ToneAnalysisStrategyFactory,
+)
 
+settings = get_settings()
+tone_analysis = ToneAnalysisStrategyFactory.create(settings)
 article_url_normalizer = ArticleUrlNormalizer()
 news_article_preprocessing_pipeline = NewsArticleProcessingPipeline(
     steps=[
@@ -46,7 +49,7 @@ news_article_preprocessing_pipeline = NewsArticleProcessingPipeline(
 )
 news_article_analysis_pipeline = NewsArticleProcessingPipeline(
     steps=[
-        ToneAnalysisStep(RandomToneAnalysisStrategy()),
+        ToneAnalysisStep(tone_analysis.strategy),
     ]
 )
 news_source_polling_service = NewsSourcePollingService(
@@ -60,9 +63,9 @@ news_source_polling_service = NewsSourcePollingService(
     existing_tone_analysis_loader=ExistingToneAnalysisLoader(
         session_factory=AsyncSessionFactory,
         input_hasher=ToneAnalysisInputHasher(),
-        provider="random",
-        model_name="random",
-        prompt_version="v1",
+        provider=tone_analysis.provider,
+        model_name=tone_analysis.model_name,
+        prompt_version=tone_analysis.prompt_version,
     ),
     persistence_service=ArticlePersistenceService(
         session_factory=AsyncSessionFactory,
