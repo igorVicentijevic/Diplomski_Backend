@@ -13,11 +13,41 @@ from sqlalchemy.ext.asyncio import (
 from app.articles.models.ArticleModel import ArticleModel
 from app.database.Base import Base
 from app.news_sources.NewsSource import NewsSource
-from app.news_sources.NewsSourcePollingService import (
-    NewsSourcePollingService,
-)
 from app.news_sources.RssFeedParser import RssFeedParser
 from app.news_sources.models.NewsArticle import NewsArticle
+from app.services.news_sources.ArticleUrlNormalizer import (
+    ArticleUrlNormalizer,
+)
+from app.services.news_sources.NewsArticleDeduplicator import (
+    NewsArticleDeduplicator,
+)
+from app.services.news_sources.NewsArticleMapper import NewsArticleMapper
+from app.services.news_sources.NewsSourcePollingService import (
+    NewsSourcePollingService,
+)
+
+
+def create_news_article(
+    article_url: str,
+    title: str = "Test article",
+) -> NewsArticle:
+    return NewsArticle(
+        source_id="test",
+        source_name="Test source",
+        title=title,
+        summary="Summary",
+        category="SERBIA",
+        published_at=datetime(
+            2026,
+            9,
+            23,
+            20,
+            0,
+            tzinfo=UTC,
+        ),
+        image_url=None,
+        article_url=article_url,
+    )
 
 
 def test_rss_feed_parser() -> None:
@@ -61,6 +91,48 @@ def test_rss_feed_parser() -> None:
     )
 
 
+def test_article_url_normalizer_removes_tracking_data() -> None:
+    normalizer = ArticleUrlNormalizer()
+
+    normalized_url = normalizer.normalize(
+        "HTTPS://Example.COM/article/"
+        "?utm_source=test&category=tech&fbclid=value#section"
+    )
+
+    assert normalized_url == "https://example.com/article?category=tech"
+
+
+def test_news_article_deduplicator_uses_normalized_url() -> None:
+    deduplicator = NewsArticleDeduplicator(ArticleUrlNormalizer())
+    original = create_news_article(
+        "https://example.com/article?utm_source=first",
+        title="Original",
+    )
+    updated = create_news_article(
+        "https://example.com/article/?fbclid=value",
+        title="Updated",
+    )
+
+    unique_articles = deduplicator.deduplicate([original, updated])
+
+    assert unique_articles == [updated]
+
+
+def test_news_article_mapper_creates_stable_model() -> None:
+    mapper = NewsArticleMapper(ArticleUrlNormalizer())
+    article = create_news_article(
+        "https://example.com/article/?utm_source=test"
+    )
+
+    first_model = mapper.to_model(article)
+    second_model = mapper.to_model(article)
+
+    assert first_model.id == second_model.id
+    assert first_model.id.startswith("test-")
+    assert first_model.normalized_url == "https://example.com/article"
+    assert first_model.article_url == article.article_url
+
+
 def test_polling_service_upserts_articles(tmp_path) -> None:
     async def run_test() -> None:
         database_url = URL.create(
@@ -80,30 +152,19 @@ def test_polling_service_upserts_articles(tmp_path) -> None:
         source.display_name = "Test source"
         source.fetch_articles = AsyncMock(
             return_value=[
-                NewsArticle(
-                    source_id="test",
-                    source_name="Test source",
-                    title="Test article",
-                    summary="Summary",
-                    category="SERBIA",
-                    published_at=datetime(
-                        2026,
-                        9,
-                        23,
-                        20,
-                        0,
-                        tzinfo=UTC,
-                    ),
-                    image_url=None,
-                    article_url=(
-                        "https://example.com/article/?utm_source=test"
-                    ),
+                create_news_article(
+                    "https://example.com/article/?utm_source=test"
                 )
             ]
         )
+        article_url_normalizer = ArticleUrlNormalizer()
         service = NewsSourcePollingService(
             sources=[source],
             session_factory=session_factory,
+            article_mapper=NewsArticleMapper(article_url_normalizer),
+            article_deduplicator=NewsArticleDeduplicator(
+                article_url_normalizer
+            ),
         )
 
         assert await service.refresh_once() == 1

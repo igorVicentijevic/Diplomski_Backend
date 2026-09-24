@@ -5,12 +5,20 @@ from fastapi import FastAPI
 
 from app.api.routes.articles import router as articles_router
 from app.database.session import AsyncSessionFactory
-from app.news_sources.NewsSourcePollingService import (
-    NewsSourcePollingService,
-)
 from app.news_sources.RssFeedParser import RssFeedParser
 from app.news_sources.RtsNewsSource import RtsNewsSource
+from app.services.news_sources.ArticleUrlNormalizer import (
+    ArticleUrlNormalizer,
+)
+from app.services.news_sources.NewsArticleDeduplicator import (
+    NewsArticleDeduplicator,
+)
+from app.services.news_sources.NewsArticleMapper import NewsArticleMapper
+from app.services.news_sources.NewsSourcePollingService import (
+    NewsSourcePollingService,
+)
 
+article_url_normalizer = ArticleUrlNormalizer()
 news_source_polling_service = NewsSourcePollingService(
     sources=[
         RtsNewsSource(
@@ -18,6 +26,10 @@ news_source_polling_service = NewsSourcePollingService(
         )
     ],
     session_factory=AsyncSessionFactory,
+    article_mapper=NewsArticleMapper(article_url_normalizer),
+    article_deduplicator=NewsArticleDeduplicator(
+        article_url_normalizer
+    ),
 )
 
 
