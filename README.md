@@ -46,7 +46,7 @@ Tone analysis uses the random strategy by default. Configure it in `.env`:
 
 ```env
 TONE_ANALYSIS_PROVIDER=random
-TONE_ANALYSIS_PROMPT_VERSION=v1
+TONE_ANALYSIS_PROMPT_VERSION=v2
 ```
 
 To use Groq:
@@ -55,7 +55,7 @@ To use Groq:
 GROQ_API_KEY=gsk_your_api_key
 TONE_ANALYSIS_PROVIDER=groq
 TONE_ANALYSIS_MODEL=openai/gpt-oss-20b
-TONE_ANALYSIS_PROMPT_VERSION=v1
+TONE_ANALYSIS_PROMPT_VERSION=v2
 TONE_ANALYSIS_TIMEOUT_SECONDS=30
 TONE_ANALYSIS_MAX_RETRIES=2
 ```

@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     groq_api_key: SecretStr | None = None
     tone_analysis_provider: Literal["random", "groq"] = "random"
     tone_analysis_model: str = "openai/gpt-oss-20b"
-    tone_analysis_prompt_version: str = "v1"
+    tone_analysis_prompt_version: str = "v2"
     tone_analysis_timeout_seconds: float = Field(default=30, gt=0)
     tone_analysis_max_retries: int = Field(default=2, ge=0)
 
