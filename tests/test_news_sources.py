@@ -41,6 +41,9 @@ from app.services.news_sources.ProcessedArticleMapper import (
 from app.services.news_sources.NewsSourcePollingService import (
     NewsSourcePollingService,
 )
+from app.tone_analysis.clients.GroqToneAnalysisLlmClient import (
+    GroqToneAnalysisLlmClient,
+)
 from app.tone_analysis.models.ToneAnalysisResult import (
     ToneAnalysisResult,
 )
@@ -139,6 +142,50 @@ def test_random_tone_analysis_strategy_returns_percentages() -> None:
 
         assert all(0 <= value <= 100 for value in percentages)
         assert abs(sum(percentages) - 100) < 0.01
+
+    asyncio.run(run_test())
+
+
+def test_groq_tone_analysis_client_uses_structured_output() -> None:
+    async def run_test() -> None:
+        completion = Mock()
+        completion.choices = [
+            Mock(
+                message=Mock(
+                    content=(
+                        '{"negative": 20, "positive": 30, '
+                        '"neutral": 50}'
+                    )
+                )
+            )
+        ]
+        groq_client = Mock()
+        groq_client.chat.completions.create = AsyncMock(
+            return_value=completion
+        )
+        client = GroqToneAnalysisLlmClient(
+            api_key="test-key",
+            model="openai/gpt-oss-20b",
+            timeout_seconds=30,
+            max_retries=2,
+            groq_client=groq_client,
+        )
+
+        result = await client.analyze_tone(
+            title="Naslov",
+            summary="Sazetak vesti",
+        )
+
+        assert result.negative == 20
+        assert result.positive == 30
+        assert result.neutral == 50
+
+        request = groq_client.chat.completions.create.await_args.kwargs
+        assert request["model"] == "openai/gpt-oss-20b"
+        assert request["response_format"]["type"] == "json_schema"
+        json_schema = request["response_format"]["json_schema"]
+        assert json_schema["strict"] is True
+        assert json_schema["schema"]["additionalProperties"] is False
 
     asyncio.run(run_test())
 
