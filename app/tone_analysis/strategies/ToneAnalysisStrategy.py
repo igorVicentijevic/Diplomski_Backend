@@ -1,4 +1,4 @@
-from typing import Protocol
+from abc import ABC, abstractmethod
 
 from app.news_sources.models.NewsArticle import NewsArticle
 from app.tone_analysis.models.ToneAnalysisResult import (
@@ -6,7 +6,8 @@ from app.tone_analysis.models.ToneAnalysisResult import (
 )
 
 
-class ToneAnalysisStrategy(Protocol):
+class ToneAnalysisStrategy(ABC):
+    @abstractmethod
     async def analyze(
         self,
         article: NewsArticle,

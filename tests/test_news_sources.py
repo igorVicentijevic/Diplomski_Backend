@@ -47,6 +47,12 @@ from app.tone_analysis.clients.GroqToneAnalysisLlmClient import (
 from app.tone_analysis.models.ToneAnalysisResult import (
     ToneAnalysisResult,
 )
+from app.tone_analysis.models.LlmToneAnalysisResponse import (
+    LlmToneAnalysisResponse,
+)
+from app.tone_analysis.strategies.LlmToneAnalysisStrategy import (
+    LlmToneAnalysisStrategy,
+)
 from app.tone_analysis.strategies.RandomToneAnalysisStrategy import (
     RandomToneAnalysisStrategy,
 )
@@ -183,9 +189,66 @@ def test_groq_tone_analysis_client_uses_structured_output() -> None:
         request = groq_client.chat.completions.create.await_args.kwargs
         assert request["model"] == "openai/gpt-oss-20b"
         assert request["response_format"]["type"] == "json_schema"
+        assert "zbir mora biti tacno 100" in (
+            request["messages"][0]["content"]
+        )
         json_schema = request["response_format"]["json_schema"]
         assert json_schema["strict"] is True
         assert json_schema["schema"]["additionalProperties"] is False
+
+    asyncio.run(run_test())
+
+
+def test_llm_tone_analysis_strategy_normalizes_response() -> None:
+    async def run_test() -> None:
+        article = create_news_article("https://example.com/article")
+        client = Mock()
+        client.analyze_tone = AsyncMock(
+            return_value=LlmToneAnalysisResponse(
+                negative=7,
+                positive=1,
+                neutral=2,
+            )
+        )
+        strategy = LlmToneAnalysisStrategy(client)
+
+        result = await strategy.analyze(article)
+
+        assert result == ToneAnalysisResult(
+            negative_percentage=70,
+            positive_percentage=10,
+            neutral_percentage=20,
+        )
+        client.analyze_tone.assert_awaited_once_with(
+            title=article.title,
+            summary=article.summary,
+        )
+
+    asyncio.run(run_test())
+
+
+def test_llm_tone_analysis_strategy_rejects_zero_total() -> None:
+    async def run_test() -> None:
+        client = Mock()
+        client.analyze_tone = AsyncMock(
+            return_value=LlmToneAnalysisResponse(
+                negative=0,
+                positive=0,
+                neutral=0,
+            )
+        )
+        strategy = LlmToneAnalysisStrategy(client)
+
+        try:
+            await strategy.analyze(
+                create_news_article("https://example.com/article")
+            )
+        except ValueError as error:
+            assert str(error) == (
+                "LLM tone analysis values must not all be zero."
+            )
+        else:
+            raise AssertionError("Expected zero tone total to fail.")
 
     asyncio.run(run_test())
 

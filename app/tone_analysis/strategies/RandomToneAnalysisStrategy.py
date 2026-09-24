@@ -4,9 +4,12 @@ from app.news_sources.models.NewsArticle import NewsArticle
 from app.tone_analysis.models.ToneAnalysisResult import (
     ToneAnalysisResult,
 )
+from app.tone_analysis.strategies.ToneAnalysisStrategy import (
+    ToneAnalysisStrategy,
+)
 
 
-class RandomToneAnalysisStrategy:
+class RandomToneAnalysisStrategy(ToneAnalysisStrategy):
     def __init__(
         self,
         random_generator: random.Random | None = None,
