@@ -4,7 +4,7 @@ Ovaj dokument opisuje HTTP ugovor izmedju backend-a i klijentskih
 aplikacija.
 
 **Status:** razvojna verzija  
-**Poslednje azuriranje:** 2026-09-23  
+**Poslednje azuriranje:** 2026-09-24  
 **Base URL za lokalni razvoj:** `http://127.0.0.1:8000`  
 **API prefiks:** `/api`
 
@@ -35,6 +35,7 @@ specifikacija na `/openapi.json`.
 | `imageUrl` | string | da | URL glavne slike ili `null`. |
 | `articleUrl` | string | ne | URL originalnog clanka. |
 | `relatedCityIds` | array of string | ne | Identifikatori povezanih gradova; moze biti prazna lista. |
+| `analysis` | ArticleAnalysis | ne | Rezultati zavrsene obrade clanka. |
 
 Dozvoljene vrednosti polja `category`:
 
@@ -47,6 +48,23 @@ CULTURE
 SPORT
 HEALTH
 ```
+
+## Model: ArticleAnalysis
+
+| Polje | Tip | Null | Opis |
+|---|---|---:|---|
+| `processedAt` | ISO 8601 datetime | ne | Vreme zavrsetka analize. |
+| `tone` | ArticleToneAnalysis | ne | Rezultat analize tona vesti. |
+
+## Model: ArticleToneAnalysis
+
+Procenti predstavljaju zastupljenost svakog tona i njihov zbir je `100`.
+
+| Polje | Tip | Null | Opis |
+|---|---|---:|---|
+| `negativePercentage` | number | ne | Procenat negativnog tona, od `0` do `100`. |
+| `positivePercentage` | number | ne | Procenat pozitivnog tona, od `0` do `100`. |
+| `neutralPercentage` | number | ne | Procenat neutralnog tona, od `0` do `100`. |
 
 Primer:
 
@@ -62,13 +80,23 @@ Primer:
   "articleUrl": "https://example.com/articles/1",
   "relatedCityIds": [
     "beograd"
-  ]
+  ],
+  "analysis": {
+    "processedAt": "2026-09-24T14:30:00Z",
+    "tone": {
+      "negativePercentage": 15.0,
+      "positivePercentage": 25.0,
+      "neutralPercentage": 60.0
+    }
+  }
 }
 ```
 
 ## GET /api/articles
 
-Vraca sve trenutno dostupne clanke.
+Vraca sve trenutno dostupne i potpuno analizirane clanke. Clanak se ne
+pojavljuje u odgovoru dok sve obavezne analize nisu uspesno zavrsene i
+perzistirane.
 
 ### Request
 
@@ -95,7 +123,15 @@ Accept: application/json
       "articleUrl": "https://example.com/articles/1",
       "relatedCityIds": [
         "beograd"
-      ]
+      ],
+      "analysis": {
+        "processedAt": "2026-09-24T14:30:00Z",
+        "tone": {
+          "negativePercentage": 15.0,
+          "positivePercentage": 25.0,
+          "neutralPercentage": 60.0
+        }
+      }
     }
   ]
 }
@@ -143,7 +179,15 @@ Response body je jedan `Article` objekat.
   "articleUrl": "https://example.com/articles/1",
   "relatedCityIds": [
     "beograd"
-  ]
+  ],
+  "analysis": {
+    "processedAt": "2026-09-24T14:30:00Z",
+    "tone": {
+      "negativePercentage": 15.0,
+      "positivePercentage": 25.0,
+      "neutralPercentage": 60.0
+    }
+  }
 }
 ```
 
@@ -199,6 +243,18 @@ data class ArticleDto(
     val imageUrl: String?,
     val articleUrl: String,
     val relatedCityIds: List<String>,
+    val analysis: ArticleAnalysisDto,
+)
+
+data class ArticleAnalysisDto(
+    val processedAt: String,
+    val tone: ArticleToneAnalysisDto,
+)
+
+data class ArticleToneAnalysisDto(
+    val negativePercentage: Double,
+    val positivePercentage: Double,
+    val neutralPercentage: Double,
 )
 
 enum class NewsCategoryDto {
