@@ -6,15 +6,26 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from app.articles.models.ArticleAnalysisModel import ArticleAnalysisModel
 from app.articles.models.ArticleModel import ArticleModel
+from app.articles.models.ArticleToneAnalysisModel import (
+    ArticleToneAnalysisModel,
+)
 from app.config.Settings import get_settings
+from app.database.Base import Base
+
+_models = (
+    ArticleModel,
+    ArticleAnalysisModel,
+    ArticleToneAnalysisModel,
+)
 
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = ArticleModel.metadata
+target_metadata = Base.metadata
 database_url = get_settings().database_url
 
 

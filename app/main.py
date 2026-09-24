@@ -15,10 +15,15 @@ from app.pipeline.steps.ArticleDeduplicationStep import (
 )
 from app.pipeline.steps.ToneAnalysisStep import ToneAnalysisStep
 from app.pipeline.steps.UrlNormalizationStep import UrlNormalizationStep
+from app.services.news_sources.ArticlePersistenceService import (
+    ArticlePersistenceService,
+)
 from app.services.news_sources.ArticleUrlNormalizer import (
     ArticleUrlNormalizer,
 )
-from app.services.news_sources.NewsArticleMapper import NewsArticleMapper
+from app.services.news_sources.ProcessedArticleMapper import (
+    ProcessedArticleMapper,
+)
 from app.services.news_sources.NewsSourcePollingService import (
     NewsSourcePollingService,
 )
@@ -40,9 +45,11 @@ news_source_polling_service = NewsSourcePollingService(
             parser=RssFeedParser(),
         )
     ],
-    session_factory=AsyncSessionFactory,
-    article_mapper=NewsArticleMapper(),
     processing_pipeline=news_article_processing_pipeline,
+    persistence_service=ArticlePersistenceService(
+        session_factory=AsyncSessionFactory,
+        article_mapper=ProcessedArticleMapper(),
+    ),
 )
 
 

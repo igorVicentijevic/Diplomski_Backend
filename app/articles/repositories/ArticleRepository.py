@@ -2,8 +2,13 @@ from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
+from app.articles.models.ArticleAnalysisModel import ArticleAnalysisModel
 from app.articles.models.ArticleModel import ArticleModel
+from app.articles.repositories.models.ArticleUpsertResult import (
+    ArticleUpsertResult,
+)
 
 
 class ArticleRepository:
@@ -12,9 +17,15 @@ class ArticleRepository:
 
     async def list_articles(self) -> list[ArticleModel]:
         result = await self._session.scalars(
-            select(ArticleModel).order_by(
-                ArticleModel.published_at.desc()
+            select(ArticleModel)
+            .join(ArticleModel.analysis)
+            .join(ArticleAnalysisModel.tone)
+            .options(
+                selectinload(ArticleModel.analysis).selectinload(
+                    ArticleAnalysisModel.tone
+                )
             )
+            .order_by(ArticleModel.published_at.desc())
         )
         return list(result)
 
@@ -22,14 +33,27 @@ class ArticleRepository:
         self,
         article_id: str,
     ) -> ArticleModel | None:
-        return await self._session.get(ArticleModel, article_id)
+        return await self._session.scalar(
+            select(ArticleModel)
+            .join(ArticleModel.analysis)
+            .join(ArticleAnalysisModel.tone)
+            .options(
+                selectinload(ArticleModel.analysis).selectinload(
+                    ArticleAnalysisModel.tone
+                )
+            )
+            .where(ArticleModel.id == article_id)
+        )
 
     async def upsert_articles(
         self,
         articles: list[ArticleModel],
-    ) -> int:
+    ) -> ArticleUpsertResult:
         if not articles:
-            return 0
+            return ArticleUpsertResult(
+                changed_count=0,
+                article_ids_by_normalized_url={},
+            )
 
         normalized_urls = [article.normalized_url for article in articles]
         existing_articles = await self._session.scalars(
@@ -43,18 +67,27 @@ class ArticleRepository:
         }
 
         changed_count = 0
+        article_ids_by_normalized_url: dict[str, str] = {}
         for article in articles:
             existing = existing_by_url.get(article.normalized_url)
             if existing is None:
                 self._session.add(article)
                 existing_by_url[article.normalized_url] = article
+                article_ids_by_normalized_url[
+                    article.normalized_url
+                ] = article.id
                 changed_count += 1
                 continue
 
+            article_ids_by_normalized_url[
+                article.normalized_url
+            ] = existing.id
             changed_count += self._update_article(existing, article)
 
-        await self._session.commit()
-        return changed_count
+        return ArticleUpsertResult(
+            changed_count=changed_count,
+            article_ids_by_normalized_url=article_ids_by_normalized_url,
+        )
 
     @staticmethod
     def _update_article(

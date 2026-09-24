@@ -26,11 +26,25 @@ class ArticleService:
 
     @staticmethod
     def _to_response(article: ArticleModel) -> ArticleResponse:
-        
+        if article.analysis is None or article.analysis.tone is None:
+            raise ValueError("Article analysis is incomplete.")
+
         response = ArticleResponse.model_validate(article)
         published_at = article.published_at
+        processed_at = article.analysis.processed_at
 
         if published_at.tzinfo is None:
             published_at = published_at.replace(tzinfo=UTC)
 
-        return response.model_copy(update={"published_at": published_at})
+        if processed_at.tzinfo is None:
+            processed_at = processed_at.replace(tzinfo=UTC)
+
+        analysis = response.analysis.model_copy(
+            update={"processed_at": processed_at}
+        )
+        return response.model_copy(
+            update={
+                "published_at": published_at,
+                "analysis": analysis,
+            }
+        )

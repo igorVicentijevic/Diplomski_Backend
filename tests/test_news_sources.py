@@ -11,7 +11,11 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+from app.articles.models.ArticleAnalysisModel import ArticleAnalysisModel
 from app.articles.models.ArticleModel import ArticleModel
+from app.articles.models.ArticleToneAnalysisModel import (
+    ArticleToneAnalysisModel,
+)
 from app.database.Base import Base
 from app.news_sources.NewsSource import NewsSource
 from app.news_sources.RssFeedParser import RssFeedParser
@@ -25,10 +29,15 @@ from app.pipeline.steps.ArticleDeduplicationStep import (
 )
 from app.pipeline.steps.ToneAnalysisStep import ToneAnalysisStep
 from app.pipeline.steps.UrlNormalizationStep import UrlNormalizationStep
+from app.services.news_sources.ArticlePersistenceService import (
+    ArticlePersistenceService,
+)
 from app.services.news_sources.ArticleUrlNormalizer import (
     ArticleUrlNormalizer,
 )
-from app.services.news_sources.NewsArticleMapper import NewsArticleMapper
+from app.services.news_sources.ProcessedArticleMapper import (
+    ProcessedArticleMapper,
+)
 from app.services.news_sources.NewsSourcePollingService import (
     NewsSourcePollingService,
 )
@@ -193,16 +202,28 @@ def test_news_article_mapper_creates_stable_model() -> None:
     context = ArticleProcessingContext(
         article=article,
         normalized_url="https://example.com/article",
+        tone_analysis=ToneAnalysisResult(
+            negative_percentage=20,
+            positive_percentage=30,
+            neutral_percentage=50,
+        ),
     )
-    mapper = NewsArticleMapper()
+    mapper = ProcessedArticleMapper()
 
-    first_model = mapper.to_model(context)
-    second_model = mapper.to_model(context)
+    first_models = mapper.to_models(context)
+    second_models = mapper.to_models(context)
 
-    assert first_model.id == second_model.id
-    assert first_model.id.startswith("test-")
-    assert first_model.normalized_url == "https://example.com/article"
-    assert first_model.article_url == article.article_url
+    assert first_models.article.id == second_models.article.id
+    assert first_models.article.id.startswith("test-")
+    assert (
+        first_models.article.normalized_url
+        == "https://example.com/article"
+    )
+    assert first_models.article.article_url == article.article_url
+    assert first_models.analysis.tone is not None
+    assert first_models.analysis.tone.negative_percentage == 20
+    assert first_models.analysis.tone.positive_percentage == 30
+    assert first_models.analysis.tone.neutral_percentage == 50
 
 
 def test_polling_service_upserts_articles(tmp_path) -> None:
@@ -234,13 +255,18 @@ def test_polling_service_upserts_articles(tmp_path) -> None:
             steps=[
                 UrlNormalizationStep(article_url_normalizer),
                 ArticleDeduplicationStep(),
+                ToneAnalysisStep(
+                    RandomToneAnalysisStrategy(random.Random(42))
+                ),
             ]
         )
         service = NewsSourcePollingService(
             sources=[source],
-            session_factory=session_factory,
-            article_mapper=NewsArticleMapper(),
             processing_pipeline=processing_pipeline,
+            persistence_service=ArticlePersistenceService(
+                session_factory=session_factory,
+                article_mapper=ProcessedArticleMapper(),
+            ),
         )
 
         assert await service.refresh_once() == 1
@@ -251,10 +277,26 @@ def test_polling_service_upserts_articles(tmp_path) -> None:
                 select(func.count()).select_from(ArticleModel)
             )
             article = await session.scalar(select(ArticleModel))
+            analysis = await session.scalar(
+                select(ArticleAnalysisModel)
+            )
+            tone_analysis = await session.scalar(
+                select(ArticleToneAnalysisModel)
+            )
 
         assert article_count == 1
         assert article is not None
         assert article.normalized_url == "https://example.com/article"
+        assert analysis is not None
+        assert analysis.article_id == article.id
+        assert tone_analysis is not None
+        assert tone_analysis.article_id == article.id
+        assert abs(
+            tone_analysis.negative_percentage
+            + tone_analysis.positive_percentage
+            + tone_analysis.neutral_percentage
+            - 100
+        ) < 0.01
 
         await engine.dispose()
 

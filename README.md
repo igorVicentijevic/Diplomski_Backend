@@ -11,7 +11,6 @@ python -m pip install -e ".[dev]"
 Copy-Item .env.example .env
 docker compose up -d database
 alembic upgrade head
-python -m app.seed
 uvicorn app.main:app --reload
 ```
 
@@ -53,10 +52,4 @@ Apply all migrations:
 
 ```powershell
 alembic upgrade head
-```
-
-Seed development articles:
-
-```powershell
-python -m app.seed
 ```

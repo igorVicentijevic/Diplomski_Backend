@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import AsyncIterator, Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -11,13 +12,65 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+from app.articles.models.ArticleAnalysisModel import ArticleAnalysisModel
 from app.articles.models.ArticleModel import ArticleModel
-from app.articles.seed import SEED_ARTICLES
+from app.articles.models.ArticleToneAnalysisModel import (
+    ArticleToneAnalysisModel,
+)
 from app.database.Base import Base
 from app.database.session import get_session
 from app.main import app
 
 client = TestClient(app)
+
+TEST_ARTICLES = (
+    {
+        "id": "article-1",
+        "title": "Prva vest",
+        "summary": "Privremeni clanak za prvu iteraciju Articles API-ja.",
+        "source": "Demo izvor",
+        "category": "SERBIA",
+        "published_at": datetime(2026, 9, 23, 18, 0, tzinfo=UTC),
+        "image_url": None,
+        "article_url": "https://example.com/articles/1",
+        "normalized_url": "https://example.com/articles/1",
+        "related_city_ids": ["beograd"],
+    },
+    {
+        "id": "article-2",
+        "title": "Nova tehnoloska vest",
+        "summary": "Drugi privremeni clanak za proveru liste.",
+        "source": "Demo izvor",
+        "category": "TECHNOLOGY",
+        "published_at": datetime(
+            2026,
+            9,
+            23,
+            17,
+            30,
+            tzinfo=UTC,
+        ),
+        "image_url": "https://example.com/images/2.jpg",
+        "article_url": "https://example.com/articles/2",
+        "normalized_url": "https://example.com/articles/2",
+        "related_city_ids": [],
+    },
+)
+
+TEST_ANALYSES = (
+    {
+        "article_id": "article-1",
+        "negative_percentage": 15.0,
+        "positive_percentage": 25.0,
+        "neutral_percentage": 60.0,
+    },
+    {
+        "article_id": "article-2",
+        "negative_percentage": 20.0,
+        "positive_percentage": 55.0,
+        "neutral_percentage": 25.0,
+    },
+)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -38,7 +91,30 @@ def test_database(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
             await connection.run_sync(Base.metadata.create_all)
         async with session_factory() as session:
             session.add_all(
-                ArticleModel(**article) for article in SEED_ARTICLES
+                ArticleModel(**article) for article in TEST_ARTICLES
+            )
+            session.add(
+                ArticleModel(
+                    id="article-without-analysis",
+                    title="Neanalizirana vest",
+                    summary="Ova vest ne treba da bude vidljiva.",
+                    source="Demo izvor",
+                    category="SERBIA",
+                    published_at=TEST_ARTICLES[0]["published_at"],
+                    image_url=None,
+                    article_url="https://example.com/articles/pending",
+                    normalized_url=(
+                        "https://example.com/articles/pending"
+                    ),
+                    related_city_ids=[],
+                )
+            )
+            session.add_all(
+                ArticleAnalysisModel(
+                    article_id=analysis["article_id"],
+                    tone=ArticleToneAnalysisModel(**analysis),
+                )
+                for analysis in TEST_ANALYSES
             )
             await session.commit()
 
@@ -75,7 +151,18 @@ def test_list_articles() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert len(payload["articles"]) == 2
-    assert payload["articles"][0] == {
+    first_article = payload["articles"][0]
+    assert first_article["analysis"]["tone"] == {
+        "negativePercentage": 15.0,
+        "positivePercentage": 25.0,
+        "neutralPercentage": 60.0,
+    }
+    assert first_article["analysis"]["processedAt"].endswith("Z")
+    assert {
+        key: value
+        for key, value in first_article.items()
+        if key != "analysis"
+    } == {
         "id": "article-1",
         "title": "Prva vest",
         "summary": "Privremeni clanak za prvu iteraciju Articles API-ja.",
@@ -93,10 +180,22 @@ def test_get_article() -> None:
 
     assert response.status_code == 200
     assert response.json()["id"] == "article-2"
+    assert response.json()["analysis"]["tone"] == {
+        "negativePercentage": 20.0,
+        "positivePercentage": 55.0,
+        "neutralPercentage": 25.0,
+    }
 
 
 def test_get_missing_article() -> None:
     response = client.get("/api/articles/missing")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Article not found"}
+
+
+def test_get_article_without_analysis_returns_not_found() -> None:
+    response = client.get("/api/articles/article-without-analysis")
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Article not found"}

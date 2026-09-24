@@ -1,9 +1,15 @@
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import JSON, DateTime, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.Base import Base
+
+if TYPE_CHECKING:
+    from app.articles.models.ArticleAnalysisModel import (
+        ArticleAnalysisModel,
+    )
 
 
 def utc_now() -> datetime:
@@ -35,4 +41,9 @@ class ArticleModel(Base):
         DateTime(timezone=True),
         default=utc_now,
         onupdate=utc_now,
+    )
+    analysis: Mapped["ArticleAnalysisModel | None"] = relationship(
+        back_populates="article",
+        cascade="all, delete-orphan",
+        uselist=False,
     )
