@@ -1,16 +1,16 @@
 import math
 
-from experiments.semantic_grouping.ArticleTextBuilder import (
+from .ArticleTextBuilder import (
     ArticleTextBuilder,
 )
-from experiments.semantic_grouping.embedding_engine.EmbeddingEngine import (
+from .embedding_engine.EmbeddingEngine import (
     EmbeddingEngine,
 )
-from experiments.semantic_grouping.models.ArticlePair import ArticlePair
-from experiments.semantic_grouping.models.EvaluationMetrics import (
+from .models.ArticlePair import ArticlePair
+from .models.EvaluationMetrics import (
     EvaluationMetrics,
 )
-from experiments.semantic_grouping.models.SimilarityResult import (
+from .models.SimilarityResult import (
     SimilarityResult,
 )
 
@@ -28,7 +28,8 @@ class EmbeddingEvaluator:
         self,
         pairs: list[ArticlePair],
     ) -> list[SimilarityResult]:
-        
+        self._validate_labels(pairs)
+
         left_embeddings = self._embedding_engine.encode(
             self._build_left_texts(pairs)
         )
@@ -94,7 +95,7 @@ class EmbeddingEvaluator:
                 left_embedding,
                 right_embedding,
             ),
-            same_event=pair.same_event,
+            same_event=self._require_label(pair),
         )
 
     def _build_left_texts(
@@ -103,8 +104,8 @@ class EmbeddingEvaluator:
     ) -> list[str]:
         return [
             self._text_builder.build(
-                pair.left_title,
-                pair.left_summary,
+                pair.left.title,
+                pair.left.summary,
             )
             for pair in pairs
         ]
@@ -115,11 +116,32 @@ class EmbeddingEvaluator:
     ) -> list[str]:
         return [
             self._text_builder.build(
-                pair.right_title,
-                pair.right_summary,
+                pair.right.title,
+                pair.right.summary,
             )
             for pair in pairs
         ]
+
+    @staticmethod
+    def _validate_labels(pairs: list[ArticlePair]) -> None:
+        unlabelled_ids = [
+            pair.pair_id
+            for pair in pairs
+            if pair.same_event is None
+        ]
+        if unlabelled_ids:
+            raise ValueError(
+                "All article pairs must be labelled before evaluation. "
+                f"Unlabelled pairs: {', '.join(unlabelled_ids)}"
+            )
+
+    @staticmethod
+    def _require_label(pair: ArticlePair) -> bool:
+        if pair.same_event is None:
+            raise ValueError(
+                f"Article pair {pair.pair_id} is not labelled."
+            )
+        return pair.same_event
 
     @staticmethod
     def _validate_embedding_count(

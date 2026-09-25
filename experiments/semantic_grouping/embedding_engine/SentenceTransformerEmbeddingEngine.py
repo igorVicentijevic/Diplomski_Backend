@@ -1,14 +1,23 @@
 from collections.abc import Sequence
+from importlib.util import find_spec
 
-from sentence_transformers import SentenceTransformer
+if find_spec("sentence_transformers") is not None:
+    from sentence_transformers import SentenceTransformer
+else:
+    SentenceTransformer = None
 
-from experiments.semantic_grouping.embedding_engine.EmbeddingEngine import (
+from .EmbeddingEngine import (
     EmbeddingEngine,
 )
 
 
 class SentenceTransformerEmbeddingEngine(EmbeddingEngine):
     def __init__(self, model_name: str) -> None:
+        if SentenceTransformer is None:
+            raise ModuleNotFoundError(
+                "Install the semantic experiment dependencies with "
+                'python -m pip install -e ".[semantic-experiments]".'
+            )
         self._model = SentenceTransformer(model_name)
 
     def encode(

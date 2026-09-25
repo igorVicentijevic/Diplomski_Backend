@@ -1,53 +1,53 @@
 # Semantic grouping experiment
 
-This package evaluates embedding models and similarity thresholds without
-changing the production application or RSS processing pipeline.
+This experiment evaluates whether article title and RSS summary embeddings
+can distinguish articles about the same concrete event from articles that
+only share a topic. It does not modify the production pipeline or database.
 
-Embedding generation is isolated in `embedding_engine`. Data-only
-structures used by the experiment remain in `models`.
+## Generate candidates
 
-```text
-semantic_grouping/
-├── embedding_engine/
-│   ├── EmbeddingEngine.py
-│   └── SentenceTransformerEmbeddingEngine.py
-└── models/
-    ├── ArticlePair.py
-    ├── EvaluationMetrics.py
-    └── SimilarityResult.py
-```
+The generator reads active and inactive articles published during the last
+seven days. It only pairs articles from different sources, within 72 hours,
+and with lexical overlap in the title or summary. A sliding time window and
+reservoir sampling avoid materializing every possible pair.
 
-## Setup
+From the `experiments` directory:
 
 ```powershell
-python -m pip install -e ".[dev,semantic-experiments]"
+python -m semantic_grouping.generate_dataset `
+  --output semantic_grouping\datasets\candidates.jsonl
 ```
 
-The first run downloads the configured model.
+The default sample targets 75 probable same-event pairs, 100 hard-negative
+candidates, and 50 weak/random negatives. Counts and the random seed can be
+changed with CLI arguments. Existing files are protected unless `--force`
+is supplied.
 
-## Dataset
-
-Add manually labelled pairs to:
-
-```text
-experiments/semantic_grouping/datasets/article_pairs.jsonl
-```
-
-Replace the example pairs with real articles before using the reported
-threshold for production decisions.
-
-## Run
+## Label candidates
 
 ```powershell
-python -m experiments.semantic_grouping.evaluate
+python -m semantic_grouping.label_dataset `
+  --dataset semantic_grouping\datasets\candidates.jsonl
 ```
 
-To save the JSON report:
+Use `s` for the same event, `d` for a different event, `p` to skip, and `q`
+to exit. Every `s` or `d` decision is immediately persisted through an
+atomic JSONL replacement, and a later run resumes from unlabelled pairs.
+
+## Evaluate a model
+
+Install the optional dependencies:
 
 ```powershell
-python -m experiments.semantic_grouping.evaluate `
-  --output experiments/semantic_grouping/results/minilm.json
+python -m pip install -e ".[semantic-experiments]"
 ```
 
-The command reports cosine similarity for every pair and selects the
-threshold with the highest F1 score in the configured range.
+Then evaluate a fully labelled dataset:
+
+```powershell
+python -m semantic_grouping.evaluate `
+  --dataset semantic_grouping\datasets\candidates.jsonl `
+  --output semantic_grouping\results\minilm.json
+```
+
+The evaluator rejects entries whose `sameEvent` value is still `null`.

@@ -4,21 +4,23 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from experiments.semantic_grouping.ArticleTextBuilder import (
+from .ArticleTextBuilder import (
     ArticleTextBuilder,
 )
-from experiments.semantic_grouping.EmbeddingEvaluator import (
+from .EmbeddingEvaluator import (
     EmbeddingEvaluator,
 )
-from experiments.semantic_grouping.LabelledPairLoader import (
+from .LabelledPairLoader import (
     LabelledPairLoader,
 )
-from experiments.semantic_grouping.embedding_engine.SentenceTransformerEmbeddingEngine import (
+from .embedding_engine.SentenceTransformerEmbeddingEngine import (
     SentenceTransformerEmbeddingEngine,
 )
 
-DEFAULT_DATASET_PATH = Path(
-    "experiments/semantic_grouping/datasets/article_pairs.jsonl"
+DEFAULT_DATASET_PATH = (
+    Path(__file__).resolve().parent
+    / "datasets"
+    / "article_pairs.jsonl"
 )
 DEFAULT_MODEL = (
     "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"

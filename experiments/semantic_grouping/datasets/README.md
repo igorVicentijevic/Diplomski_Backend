@@ -1,27 +1,35 @@
 # Semantic grouping dataset
 
 `article_pairs.jsonl` contains manually labelled article pairs used to
-select an embedding model and similarity threshold.
-
-Each line must contain one JSON object:
+evaluate semantic grouping models. Each line is one JSON object:
 
 ```json
 {
-  "id": "pair-001",
+  "id": "pair-123",
   "left": {
-    "title": "First article title",
-    "summary": "First article summary."
+    "articleId": "article-1",
+    "title": "Naslov",
+    "summary": "Sažetak",
+    "source": "RTS",
+    "publishedAt": "2026-09-25T18:00:00+00:00"
   },
   "right": {
-    "title": "Second article title",
-    "summary": "Second article summary."
+    "articleId": "article-2",
+    "title": "Drugi naslov",
+    "summary": "Drugi sažetak",
+    "source": "N1",
+    "publishedAt": "2026-09-25T19:00:00+00:00"
   },
-  "sameEvent": true
+  "sameEvent": null,
+  "candidateType": "hard_negative"
 }
 ```
 
 `sameEvent` is `true` only when both articles describe the same concrete
-event. Articles about the same general subject but different events must
-be labelled `false`.
+event, `false` when they do not, and `null` while the pair is waiting for
+manual labelling. `candidateType` records the generator stratum and is not
+a ground-truth label.
 
-The initial target is at least 50 positive and 50 negative pairs.
+The first useful dataset should contain at least 50 positive and 50
+negative pairs. At least half of the negative pairs should be hard
+negatives: semantically related articles about different concrete events.

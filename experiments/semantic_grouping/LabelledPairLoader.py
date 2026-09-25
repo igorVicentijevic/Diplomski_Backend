@@ -1,10 +1,19 @@
 import json
 from pathlib import Path
 
-from experiments.semantic_grouping.models.ArticlePair import ArticlePair
+from .ArticlePairJsonCodec import (
+    ArticlePairJsonCodec,
+)
+from .models.ArticlePair import ArticlePair
 
 
 class LabelledPairLoader:
+    def __init__(
+        self,
+        codec: ArticlePairJsonCodec | None = None,
+    ) -> None:
+        self._codec = codec or ArticlePairJsonCodec()
+
     def load(self, path: Path) -> list[ArticlePair]:
         pairs: list[ArticlePair] = []
 
@@ -15,18 +24,11 @@ class LabelledPairLoader:
 
                 try:
                     payload = json.loads(line)
-                    left = payload["left"]
-                    right = payload["right"]
-                    pair = ArticlePair(
-                        pair_id=str(payload["id"]),
-                        left_title=str(left["title"]),
-                        left_summary=str(left["summary"]),
-                        right_title=str(right["title"]),
-                        right_summary=str(right["summary"]),
-                        same_event=self._read_label(
-                            payload["sameEvent"]
-                        ),
-                    )
+                    pair = self._codec.decode(payload)
+                    if pair.same_event is None:
+                        raise ValueError(
+                            "sameEvent must be labelled before evaluation."
+                        )
                 except (
                     KeyError,
                     TypeError,
@@ -43,9 +45,3 @@ class LabelledPairLoader:
             raise ValueError("The labelled pair dataset is empty.")
 
         return pairs
-
-    @staticmethod
-    def _read_label(value: object) -> bool:
-        if not isinstance(value, bool):
-            raise TypeError("sameEvent must be a boolean.")
-        return value
