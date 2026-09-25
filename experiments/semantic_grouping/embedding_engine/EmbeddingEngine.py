@@ -1,11 +1,5 @@
-from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from app.semantic_grouping.embedding_engine.EmbeddingEngine import (
+    EmbeddingEngine,
+)
 
-
-class EmbeddingEngine(ABC):
-    @abstractmethod
-    def encode(
-        self,
-        texts: Sequence[str],
-    ) -> list[list[float]]:
-        ...
+__all__ = ["EmbeddingEngine"]

@@ -23,12 +23,23 @@ class ArticlePairJsonCodec:
         ):
             raise TypeError("candidateType must be a string or null.")
 
+        event_id = payload.get("eventId")
+        if event_id is not None and (
+            not isinstance(event_id, str) or not event_id.strip()
+        ):
+            raise TypeError("eventId must be a non-empty string or null.")
+        if same_event is False and event_id is not None:
+            raise ValueError(
+                "eventId must be null for a negative pair."
+            )
+
         return ArticlePair(
             pair_id=str(payload["id"]),
             left=self._decode_article(payload["left"]),
             right=self._decode_article(payload["right"]),
             same_event=same_event,
             candidate_type=candidate_type,
+            event_id=event_id,
         )
 
     def encode(
@@ -45,6 +56,8 @@ class ArticlePairJsonCodec:
         }
         if resolved_candidate_type is not None:
             payload["candidateType"] = resolved_candidate_type
+        if pair.event_id is not None:
+            payload["eventId"] = pair.event_id
         return payload
 
     @staticmethod

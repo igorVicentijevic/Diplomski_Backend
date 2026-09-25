@@ -49,10 +49,10 @@ hard-negative, and excluded counts.
 
 ## Compare embedding models
 
-Install the optional dependencies:
+Install the application dependencies:
 
 ```powershell
-python -m pip install -e ".[semantic-experiments]"
+python -m pip install -e .
 ```
 
 Then compare at least two models on the same frozen dataset:
@@ -71,8 +71,11 @@ aggregate precision, recall, F1, PR-AUC, confusion counts, threshold
 statistics, hard-negative results, every pair similarity, false positives,
 false negatives, and embedding generation time.
 
-The v1 result and its thresholds are preliminary because the frozen dataset
-contains only 11 positive and 98 negative pairs. The current shared-article
-graph has fewer positive components than folds, so leakage-safe stratification
-cannot put a positive example in every test fold; this limitation is recorded
-in the report. Re-run the benchmark after collecting more positive examples.
+Positive labels now include an `eventId` so independent real-world events can
+be counted explicitly. The model and threshold remain preliminary until the
+dataset contains at least 50 positive pairs from at least two independently
+labelled events. Re-run the benchmark after that condition is satisfied.
+
+The current shared-article graph has fewer positive components than folds, so
+leakage-safe stratification cannot put a positive example in every test fold;
+this limitation is recorded separately in the report.

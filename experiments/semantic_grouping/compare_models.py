@@ -25,6 +25,26 @@ DEFAULT_MODELS = [
     "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
     "sentence-transformers/distiluse-base-multilingual-cased-v2",
 ]
+MINIMUM_POSITIVE_PAIRS = 50
+MINIMUM_POSITIVE_EVENTS = 2
+
+
+def evaluate_calibration_readiness(
+    positive_count: int,
+    positive_event_count: int,
+) -> tuple[bool, list[str]]:
+    reasons: list[str] = []
+    if positive_count < MINIMUM_POSITIVE_PAIRS:
+        reasons.append(
+            f"only {positive_count} positive pairs are available; "
+            f"at least {MINIMUM_POSITIVE_PAIRS} are required"
+        )
+    if positive_event_count < MINIMUM_POSITIVE_EVENTS:
+        reasons.append(
+            "positive pairs cover fewer than two explicitly labelled "
+            "independent events"
+        )
+    return not reasons, reasons
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -82,6 +102,19 @@ def build_report(arguments: argparse.Namespace) -> dict[str, Any]:
         for pair in pairs
     )
     positive_component_count = service.positive_component_count
+    positive_event_count = len(
+        {
+            pair.event_id
+            for pair in pairs
+            if pair.same_event is True and pair.event_id is not None
+        }
+    )
+    calibration_ready, preliminary_reasons = (
+        evaluate_calibration_readiness(
+            positive_count,
+            positive_event_count,
+        )
+    )
     try:
         dataset_path = str(
             arguments.dataset.resolve().relative_to(
@@ -94,11 +127,11 @@ def build_report(arguments: argparse.Namespace) -> dict[str, Any]:
     return {
         "version": 1,
         "generatedAt": datetime.now(UTC).isoformat(),
-        "preliminary": True,
+        "preliminary": not calibration_ready,
         "preliminaryReason": (
-            "The frozen dataset contains only "
-            f"{positive_count} positive pairs. Recalculate model "
-            "selection and thresholds after adding more positives."
+            "; ".join(preliminary_reasons)
+            if preliminary_reasons
+            else None
         ),
         "dataset": {
             "path": dataset_path,
@@ -106,6 +139,13 @@ def build_report(arguments: argparse.Namespace) -> dict[str, Any]:
             "positive": positive_count,
             "negative": negative_count,
             "hardNegative": hard_negative_count,
+            "positiveArticleComponents": positive_component_count,
+            "positiveEventCount": positive_event_count,
+            "minimumPositivePairs": MINIMUM_POSITIVE_PAIRS,
+            "minimumPositiveEvents": MINIMUM_POSITIVE_EVENTS,
+            "readyForThresholdCalibration": (
+                calibration_ready
+            ),
         },
         "crossValidation": {
             "foldCount": arguments.folds,

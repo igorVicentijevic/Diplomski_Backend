@@ -13,11 +13,19 @@ from app.articles.models.ArticleToneAnalysisModel import (
 )
 from app.config.Settings import get_settings
 from app.database.Base import Base
+from app.semantic_grouping.models.SemanticGroupingDecisionModel import (
+    SemanticGroupingDecisionModel,
+)
+from app.semantic_grouping.models.SemanticGroupingRunModel import (
+    SemanticGroupingRunModel,
+)
 
 _models = (
     ArticleModel,
     ArticleAnalysisModel,
     ArticleToneAnalysisModel,
+    SemanticGroupingRunModel,
+    SemanticGroupingDecisionModel,
 )
 
 config = context.config

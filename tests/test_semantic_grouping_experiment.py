@@ -80,8 +80,9 @@ def create_evaluation_article(
 
 def create_pair_payload(
     same_event: bool | None,
+    event_id: str | None = None,
 ) -> dict[str, object]:
-    return {
+    payload: dict[str, object] = {
         "id": "pair-1",
         "left": {
             "articleId": "left-1",
@@ -99,12 +100,15 @@ def create_pair_payload(
         },
         "sameEvent": same_event,
     }
+    if event_id is not None:
+        payload["eventId"] = event_id
+    return payload
 
 
 def test_labelled_pair_loader_reads_jsonl(tmp_path: Path) -> None:
     dataset_path = tmp_path / "pairs.jsonl"
     dataset_path.write_text(
-        json.dumps(create_pair_payload(True)),
+        json.dumps(create_pair_payload(True, event_id="event-1")),
         encoding="utf-8",
     )
 
@@ -126,6 +130,7 @@ def test_labelled_pair_loader_reads_jsonl(tmp_path: Path) -> None:
                 "N1",
             ),
             same_event=True,
+            event_id="event-1",
         )
     ]
 
@@ -145,6 +150,28 @@ def test_labelled_pair_loader_rejects_unlabelled_pair(
         assert "Invalid dataset entry at line 1." == str(error)
     else:
         raise AssertionError("Unlabelled pair was accepted.")
+
+
+def test_labelled_pair_loader_rejects_event_id_for_negative_pair(
+    tmp_path: Path,
+) -> None:
+    dataset_path = tmp_path / "pairs.jsonl"
+    dataset_path.write_text(
+        json.dumps(
+            create_pair_payload(
+                False,
+                event_id="event-1",
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    try:
+        LabelledPairLoader().load(dataset_path)
+    except ValueError as error:
+        assert "Invalid dataset entry at line 1." == str(error)
+    else:
+        raise AssertionError("Negative pair with event ID was accepted.")
 
 
 def test_embedding_evaluator_selects_threshold() -> None:

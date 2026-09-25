@@ -9,6 +9,9 @@ from app.pipeline.NewsArticleProcessingPipeline import (
 from app.services.news_sources.ArticlePersistenceService import (
     ArticlePersistenceService,
 )
+from app.semantic_grouping.services.ShadowSemanticGroupingService import (
+    ShadowSemanticGroupingService,
+)
 from app.tone_analysis.services.ExistingToneAnalysisLoader import (
     ExistingToneAnalysisLoader,
 )
@@ -26,6 +29,7 @@ class NewsSourcePollingService:
         analysis_pipeline: NewsArticleProcessingPipeline,
         existing_tone_analysis_loader: ExistingToneAnalysisLoader,
         persistence_service: ArticlePersistenceService,
+        shadow_grouping_service: ShadowSemanticGroupingService | None = None,
         refresh_interval_seconds: int = REFRESH_INTERVAL_SECONDS,
     ) -> None:
         self._sources = sources
@@ -35,6 +39,7 @@ class NewsSourcePollingService:
             existing_tone_analysis_loader
         )
         self._persistence_service = persistence_service
+        self._shadow_grouping_service = shadow_grouping_service
         self._refresh_interval_seconds = refresh_interval_seconds
         self._task: asyncio.Task[None] | None = None
 
@@ -85,6 +90,14 @@ class NewsSourcePollingService:
                 logger.exception(
                     "Could not refresh news source %s",
                     source.display_name,
+                )
+
+        if self._shadow_grouping_service is not None:
+            try:
+                await self._shadow_grouping_service.run()
+            except Exception:
+                logger.exception(
+                    "Could not run semantic grouping in shadow mode."
                 )
 
         return changed_count

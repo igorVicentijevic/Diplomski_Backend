@@ -73,6 +73,7 @@ def display_entry(
     left = entry["left"]
     right = entry["right"]
     candidate_type = entry.get("candidateType", "unknown")
+    event_id = entry.get("eventId")
     print()
     print(f"PAIR {current}/{total} [{candidate_type}]")
     print()
@@ -88,6 +89,8 @@ def display_entry(
     print("[d] različit događaj")
     print("[p] preskoči")
     print("[q] sačuvaj i izađi")
+    if event_id is not None:
+        print(f"Trenutni event ID: {event_id}")
 
 
 def main() -> None:
@@ -123,6 +126,17 @@ def main() -> None:
                 continue
 
             entry["sameEvent"] = action == "s"
+            if action == "s":
+                while True:
+                    event_id = input("Event ID: ").strip()
+                    if event_id:
+                        entry["eventId"] = event_id
+                        break
+                    print(
+                        "Pozitivan par mora imati neprazan event ID."
+                    )
+            else:
+                entry.pop("eventId", None)
             save_entries(arguments.dataset, entries)
             break
 
