@@ -44,6 +44,9 @@ from app.semantic_grouping.services.ProposedGroupAssigner import (
 from app.semantic_grouping.services.SemanticGroupingRunFactory import (
     SemanticGroupingRunFactory,
 )
+from app.semantic_grouping.services.SemanticGroupingExportService import (
+    SemanticGroupingExportService,
+)
 from app.semantic_grouping.services.SemanticPairEvaluator import (
     SemanticPairEvaluator,
 )
@@ -161,6 +164,17 @@ def test_shadow_grouping_persists_decisions_and_groups(
             run_factory=SemanticGroupingRunFactory(configuration),
         )
         run = await service.run()
+        export_path = (
+            tmp_path
+            / "exports"
+            / "semantic-groups.md"
+        )
+        exported_path = await SemanticGroupingExportService(
+            session_factory
+        ).export(
+            output=export_path,
+            run_id=run.id,
+        )
 
         async with session_factory() as session:
             stored_run = await session.get(
@@ -207,6 +221,15 @@ def test_shadow_grouping_persists_decisions_and_groups(
             for decision in decisions
             if not decision.predicted_same_event
         )
+        assert exported_path == export_path
+        report = export_path.read_text(encoding="utf-8")
+        assert "# Semantic grouping export" in report
+        assert "## Group 1" in report
+        assert "Article A" in report
+        assert "Article B" in report
+        assert "Article C" in report
+        assert "Article D" not in report
+        assert "Threshold: 0.6900" in report
 
         await engine.dispose()
 

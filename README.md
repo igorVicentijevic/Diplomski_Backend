@@ -42,6 +42,23 @@ pytest
 Tests use an isolated temporary SQLite database and do not require the
 PostgreSQL container.
 
+## Export semantic groups
+
+Export the groups proposed by the latest shadow grouping run:
+
+```powershell
+python -m app.semantic_grouping.export_groups
+```
+
+The command creates a Markdown report in `exports`. Export a specific run or
+choose the output file with:
+
+```powershell
+python -m app.semantic_grouping.export_groups `
+  --run-id "run-id" `
+  --output "exports\selected-run.md"
+```
+
 ## Tone analysis
 
 Tone analysis uses the random strategy by default. Configure it in `.env`:

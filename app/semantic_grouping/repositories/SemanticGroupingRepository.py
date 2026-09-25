@@ -57,3 +57,54 @@ class SemanticGroupingRepository:
             .limit(limit)
         )
         return list(result)
+
+    async def get_run(
+        self,
+        run_id: str,
+    ) -> SemanticGroupingRunModel | None:
+        return await self._session.get(
+            SemanticGroupingRunModel,
+            run_id,
+        )
+
+    async def get_latest_run(
+        self,
+    ) -> SemanticGroupingRunModel | None:
+        return await self._session.scalar(
+            select(SemanticGroupingRunModel)
+            .order_by(SemanticGroupingRunModel.created_at.desc())
+            .limit(1)
+        )
+
+    async def list_grouped_decisions(
+        self,
+        run_id: str,
+    ) -> list[SemanticGroupingDecisionModel]:
+        result = await self._session.scalars(
+            select(SemanticGroupingDecisionModel)
+            .where(
+                SemanticGroupingDecisionModel.run_id == run_id,
+                SemanticGroupingDecisionModel.proposed_group_id.is_not(
+                    None
+                ),
+            )
+            .order_by(
+                SemanticGroupingDecisionModel.proposed_group_id,
+                SemanticGroupingDecisionModel.similarity.desc(),
+            )
+        )
+        return list(result)
+
+    async def list_articles_by_ids(
+        self,
+        article_ids: set[str],
+    ) -> list[ArticleModel]:
+        if not article_ids:
+            return []
+
+        result = await self._session.scalars(
+            select(ArticleModel).where(
+                ArticleModel.id.in_(article_ids)
+            )
+        )
+        return list(result)
