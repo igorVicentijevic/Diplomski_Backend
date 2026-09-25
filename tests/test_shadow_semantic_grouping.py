@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, Mock
 from sqlalchemy import select
 from sqlalchemy.engine import URL
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.articles.models.ArticleModel import ArticleModel
 from app.config.Settings import Settings
@@ -245,6 +246,25 @@ def test_polling_service_runs_grouping_in_shadow_mode() -> None:
 
         assert await service.refresh_once() == 0
         shadow_grouping_service.run.assert_awaited_once_with()
+
+    asyncio.run(run_test())
+
+
+def test_repository_flushes_run_before_adding_decisions() -> None:
+    async def run_test() -> None:
+        session = Mock(spec=AsyncSession)
+        session.flush = AsyncMock()
+        run = Mock(spec=SemanticGroupingRunModel)
+        decisions = [Mock(spec=SemanticGroupingDecisionModel)]
+
+        await SemanticGroupingRepository(session).add_run(
+            run,
+            decisions,
+        )
+
+        session.add.assert_called_once_with(run)
+        session.flush.assert_awaited_once_with()
+        session.add_all.assert_called_once_with(decisions)
 
     asyncio.run(run_test())
 

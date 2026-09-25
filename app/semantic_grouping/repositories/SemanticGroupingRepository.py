@@ -30,12 +30,13 @@ class SemanticGroupingRepository:
         )
         return list(result)
 
-    def add_run(
+    async def add_run(
         self,
         run: SemanticGroupingRunModel,
         decisions: list[SemanticGroupingDecisionModel],
     ) -> None:
         self._session.add(run)
+        await self._session.flush()
         self._session.add_all(decisions)
 
     async def list_boundary_decisions(
