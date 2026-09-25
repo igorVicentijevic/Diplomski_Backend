@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -25,6 +25,7 @@ class ArticleRepository:
                     ArticleAnalysisModel.tone
                 )
             )
+            .where(ArticleModel.is_active.is_(True))
             .order_by(ArticleModel.published_at.desc())
         )
         return list(result)
@@ -42,7 +43,10 @@ class ArticleRepository:
                     ArticleAnalysisModel.tone
                 )
             )
-            .where(ArticleModel.id == article_id)
+            .where(
+                ArticleModel.id == article_id,
+                ArticleModel.is_active.is_(True),
+            )
         )
 
     async def upsert_articles(
@@ -89,17 +93,45 @@ class ArticleRepository:
             article_ids_by_normalized_url=article_ids_by_normalized_url,
         )
 
+    async def deactivate_articles_not_in_feed(
+        self,
+        source_id: str,
+        active_normalized_urls: list[str],
+    ) -> None:
+        # Deactivate articles not in the active feed for the given source.
+        statement = update(ArticleModel).where(
+            ArticleModel.source_id == source_id,
+            ArticleModel.is_active.is_(True),
+        )
+
+        if active_normalized_urls:
+            statement = statement.where(
+                ArticleModel.normalized_url.not_in(
+                    active_normalized_urls
+                )
+            )
+
+        await self._session.execute(
+            statement.values(is_active=False)
+        )
+        
+
     @staticmethod
     def _update_article(
         existing: ArticleModel,
         incoming: ArticleModel,
     ) -> int:
+        existing.last_seen_at = incoming.last_seen_at
+        existing.is_active = True
+
         changed = False
         for column in ArticleModel.__table__.columns:
             if column.name in {
                 "id",
                 "normalized_url",
                 "first_seen_at",
+                "last_seen_at",
+                "is_active",
                 "updated_at",
             }:
                 continue

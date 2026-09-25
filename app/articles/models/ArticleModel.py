@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import JSON, DateTime, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.Base import Base
@@ -20,6 +20,7 @@ class ArticleModel(Base):
     __tablename__ = "articles"
 
     id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    source_id: Mapped[str] = mapped_column(String(64), index=True)
     title: Mapped[str] = mapped_column(Text)
     summary: Mapped[str] = mapped_column(Text)
     source: Mapped[str] = mapped_column(String(255))
@@ -36,6 +37,14 @@ class ArticleModel(Base):
     first_seen_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utc_now,
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

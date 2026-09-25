@@ -26,6 +26,7 @@ client = TestClient(app)
 TEST_ARTICLES = (
     {
         "id": "article-1",
+        "source_id": "demo",
         "title": "Prva vest",
         "summary": "Privremeni clanak za prvu iteraciju Articles API-ja.",
         "source": "Demo izvor",
@@ -38,6 +39,7 @@ TEST_ARTICLES = (
     },
     {
         "id": "article-2",
+        "source_id": "demo",
         "title": "Nova tehnoloska vest",
         "summary": "Drugi privremeni clanak za proveru liste.",
         "source": "Demo izvor",
@@ -55,6 +57,27 @@ TEST_ARTICLES = (
         "normalized_url": "https://example.com/articles/2",
         "related_city_ids": [],
     },
+    {
+        "id": "inactive-article",
+        "source_id": "demo",
+        "title": "Stara vest",
+        "summary": "Vest vise nije prisutna u RSS feedu.",
+        "source": "Demo izvor",
+        "category": "SERBIA",
+        "published_at": datetime(
+            2026,
+            9,
+            23,
+            16,
+            0,
+            tzinfo=UTC,
+        ),
+        "image_url": None,
+        "article_url": "https://example.com/articles/inactive",
+        "normalized_url": "https://example.com/articles/inactive",
+        "related_city_ids": [],
+        "is_active": False,
+    },
 )
 
 TEST_ANALYSES = (
@@ -69,6 +92,12 @@ TEST_ANALYSES = (
         "negative_percentage": 20.0,
         "positive_percentage": 55.0,
         "neutral_percentage": 25.0,
+    },
+    {
+        "article_id": "inactive-article",
+        "negative_percentage": 10.0,
+        "positive_percentage": 10.0,
+        "neutral_percentage": 80.0,
     },
 )
 
@@ -96,6 +125,7 @@ def test_database(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
             session.add(
                 ArticleModel(
                     id="article-without-analysis",
+                    source_id="demo",
                     title="Neanalizirana vest",
                     summary="Ova vest ne treba da bude vidljiva.",
                     source="Demo izvor",
@@ -189,6 +219,13 @@ def test_get_article() -> None:
 
 def test_get_missing_article() -> None:
     response = client.get("/api/articles/missing")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Article not found"}
+
+
+def test_get_inactive_article_returns_not_found() -> None:
+    response = client.get("/api/articles/inactive-article")
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Article not found"}

@@ -18,8 +18,10 @@ The API is available at `http://127.0.0.1:8000`, with interactive documentation 
 `http://127.0.0.1:8000/docs`.
 
 When the API starts, it immediately reads the configured news RSS feeds and
-stores new or changed articles in PostgreSQL. The feeds are checked every 15
-minutes while the API process is running.
+stores new or changed articles in PostgreSQL. Articles missing from the latest
+successful fetch of their source remain stored but are marked inactive. The
+feeds are checked every 15 minutes while the API process is running, and the
+Articles API returns only active articles.
 
 Available endpoints:
 

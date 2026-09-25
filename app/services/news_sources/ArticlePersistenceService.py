@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.articles.repositories.ArticleAnalysisRepository import (
@@ -24,11 +26,27 @@ class ArticlePersistenceService:
     async def persist(
         self,
         contexts: list[ArticleProcessingContext],
+        source_id: str,
     ) -> int:
+        unexpected_source_ids = {
+            context.article.source_id
+            for context in contexts
+            if context.article.source_id != source_id
+        }
+        if unexpected_source_ids:
+            raise ValueError(
+                "All persisted articles must belong to the requested "
+                "news source."
+            )
+
+        seen_at = datetime.now(UTC)
         processed_models = [
             self._article_mapper.to_models(context)
             for context in contexts
         ]
+        for models in processed_models:
+            models.article.last_seen_at = seen_at
+            models.article.is_active = True
 
         async with self._session_factory() as session:
             async with session.begin():
@@ -56,6 +74,13 @@ class ArticlePersistenceService:
                         models.analysis
                         for models in processed_models
                     ]
+                )
+                await article_repository.deactivate_articles_not_in_feed(
+                    source_id=source_id,
+                    active_normalized_urls=[
+                        models.article.normalized_url
+                        for models in processed_models
+                    ],
                 )
 
         return upsert_result.changed_count

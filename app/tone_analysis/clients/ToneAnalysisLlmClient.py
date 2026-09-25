@@ -1,3 +1,4 @@
+
 from typing import Protocol
 
 from app.tone_analysis.models.LlmToneAnalysisResponse import (

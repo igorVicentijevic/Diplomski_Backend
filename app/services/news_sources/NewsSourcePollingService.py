@@ -77,7 +77,8 @@ class NewsSourcePollingService:
 
                 #persist the converted domain models to the database
                 changed_count += await self._persistence_service.persist(
-                    processed_articles
+                    processed_articles,
+                    source_id=source.id,
                 )
 
             except Exception:

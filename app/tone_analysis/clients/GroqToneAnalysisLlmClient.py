@@ -9,6 +9,7 @@ from app.tone_analysis.prompts.ToneAnalysisPrompt import (
 
 
 class GroqToneAnalysisLlmClient:
+    
     def __init__(
         self,
         *,

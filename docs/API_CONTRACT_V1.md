@@ -4,7 +4,7 @@ Ovaj dokument opisuje HTTP ugovor izmedju backend-a i klijentskih
 aplikacija.
 
 **Status:** razvojna verzija  
-**Poslednje azuriranje:** 2026-09-24  
+**Poslednje azuriranje:** 2026-09-25
 **Base URL za lokalni razvoj:** `http://127.0.0.1:8000`  
 **API prefiks:** `/api`
 
@@ -94,9 +94,10 @@ Primer:
 
 ## GET /api/articles
 
-Vraca sve trenutno dostupne i potpuno analizirane clanke. Clanak se ne
-pojavljuje u odgovoru dok sve obavezne analize nisu uspesno zavrsene i
-perzistirane.
+Vraca potpuno analizirane clanke koji su prisutni u poslednjem uspesnom
+RSS fetch-u svog izvora. Clanak se ne pojavljuje u odgovoru dok sve obavezne
+analize nisu uspesno zavrsene i perzistirane. Clanci koji nestanu iz RSS
+feed-a ostaju sacuvani u bazi, ali se vise ne vracaju kroz ovaj endpoint.
 
 ### Request
 

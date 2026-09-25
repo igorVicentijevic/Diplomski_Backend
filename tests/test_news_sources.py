@@ -394,6 +394,7 @@ def test_news_article_mapper_creates_stable_model() -> None:
 
     assert first_models.article.id == second_models.article.id
     assert first_models.article.id.startswith("test-")
+    assert first_models.article.source_id == "test"
     assert (
         first_models.article.normalized_url
         == "https://example.com/article"
@@ -480,11 +481,28 @@ def test_polling_service_upserts_articles(tmp_path) -> None:
         assert await service.refresh_once() == 1
         assert strategy.analyze.await_count == 2
 
+        source.fetch_articles.return_value = [
+            create_news_article(
+                "https://example.com/second-article"
+            )
+        ]
+        assert await service.refresh_once() == 1
+        assert strategy.analyze.await_count == 3
+
+        source.fetch_articles.return_value = [
+            create_news_article(
+                "https://example.com/article/?utm_source=test",
+                title="Updated article",
+            )
+        ]
+        assert await service.refresh_once() == 0
+        assert strategy.analyze.await_count == 3
+
         async with session_factory() as session:
             article_count = await session.scalar(
                 select(func.count()).select_from(ArticleModel)
             )
-            article = await session.scalar(select(ArticleModel))
+            articles = await session.scalars(select(ArticleModel))
             analysis = await session.scalar(
                 select(ArticleAnalysisModel)
             )
@@ -492,13 +510,19 @@ def test_polling_service_upserts_articles(tmp_path) -> None:
                 select(ArticleToneAnalysisModel)
             )
 
-        assert article_count == 1
-        assert article is not None
-        assert article.normalized_url == "https://example.com/article"
+        articles_by_url = {
+            article.normalized_url: article
+            for article in articles
+        }
+        assert article_count == 2
+        assert articles_by_url[
+            "https://example.com/article"
+        ].is_active is True
+        assert articles_by_url[
+            "https://example.com/second-article"
+        ].is_active is False
         assert analysis is not None
-        assert analysis.article_id == article.id
         assert tone_analysis is not None
-        assert tone_analysis.article_id == article.id
         assert tone_analysis.input_hash is not None
         assert tone_analysis.provider == "random"
         assert tone_analysis.model_name == "random"
