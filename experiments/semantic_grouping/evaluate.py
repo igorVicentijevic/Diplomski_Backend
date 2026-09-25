@@ -13,8 +13,8 @@ from experiments.semantic_grouping.EmbeddingEvaluator import (
 from experiments.semantic_grouping.LabelledPairLoader import (
     LabelledPairLoader,
 )
-from experiments.semantic_grouping.SentenceTransformerEmbeddingModel import (
-    SentenceTransformerEmbeddingModel,
+from experiments.semantic_grouping.embedding_engine.SentenceTransformerEmbeddingEngine import (
+    SentenceTransformerEmbeddingEngine,
 )
 
 DEFAULT_DATASET_PATH = Path(
@@ -48,7 +48,7 @@ def main() -> None:
     arguments = parse_arguments()
     pairs = LabelledPairLoader().load(arguments.dataset)
     evaluator = EmbeddingEvaluator(
-        embedding_model=SentenceTransformerEmbeddingModel(
+        embedding_engine=SentenceTransformerEmbeddingEngine(
             arguments.model
         ),
         text_builder=ArticleTextBuilder(),

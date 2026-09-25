@@ -4,6 +4,7 @@ class ArticleTextBuilder:
         title: str,
         summary: str,
     ) -> str:
+        
         normalized_title = " ".join(title.split())
         normalized_summary = " ".join(summary.split())
 

@@ -1,8 +1,9 @@
+from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import Protocol
 
 
-class EmbeddingModel(Protocol):
+class EmbeddingEngine(ABC):
+    @abstractmethod
     def encode(
         self,
         texts: Sequence[str],

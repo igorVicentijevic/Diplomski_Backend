@@ -3,6 +3,20 @@
 This package evaluates embedding models and similarity thresholds without
 changing the production application or RSS processing pipeline.
 
+Embedding generation is isolated in `embedding_engine`. Data-only
+structures used by the experiment remain in `models`.
+
+```text
+semantic_grouping/
+├── embedding_engine/
+│   ├── EmbeddingEngine.py
+│   └── SentenceTransformerEmbeddingEngine.py
+└── models/
+    ├── ArticlePair.py
+    ├── EvaluationMetrics.py
+    └── SimilarityResult.py
+```
+
 ## Setup
 
 ```powershell

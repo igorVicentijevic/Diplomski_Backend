@@ -10,10 +10,13 @@ from experiments.semantic_grouping.EmbeddingEvaluator import (
 from experiments.semantic_grouping.LabelledPairLoader import (
     LabelledPairLoader,
 )
+from experiments.semantic_grouping.embedding_engine.EmbeddingEngine import (
+    EmbeddingEngine,
+)
 from experiments.semantic_grouping.models.ArticlePair import ArticlePair
 
 
-class FakeEmbeddingModel:
+class FakeEmbeddingEngine(EmbeddingEngine):
     def encode(self, texts: list[str]) -> list[list[float]]:
         embeddings = {
             "Title: Left\nSummary: Same": [1.0, 0.0],
@@ -59,7 +62,7 @@ def test_labelled_pair_loader_reads_jsonl(tmp_path: Path) -> None:
 
 def test_embedding_evaluator_selects_threshold() -> None:
     evaluator = EmbeddingEvaluator(
-        embedding_model=FakeEmbeddingModel(),
+        embedding_engine=FakeEmbeddingEngine(),
         text_builder=ArticleTextBuilder(),
     )
     pairs = [

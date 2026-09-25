@@ -3,10 +3,10 @@ import math
 from experiments.semantic_grouping.ArticleTextBuilder import (
     ArticleTextBuilder,
 )
-from experiments.semantic_grouping.models.ArticlePair import ArticlePair
-from experiments.semantic_grouping.models.EmbeddingModel import (
-    EmbeddingModel,
+from experiments.semantic_grouping.embedding_engine.EmbeddingEngine import (
+    EmbeddingEngine,
 )
+from experiments.semantic_grouping.models.ArticlePair import ArticlePair
 from experiments.semantic_grouping.models.EvaluationMetrics import (
     EvaluationMetrics,
 )
@@ -18,49 +18,120 @@ from experiments.semantic_grouping.models.SimilarityResult import (
 class EmbeddingEvaluator:
     def __init__(
         self,
-        embedding_model: EmbeddingModel,
+        embedding_engine: EmbeddingEngine,
         text_builder: ArticleTextBuilder,
     ) -> None:
-        self._embedding_model = embedding_model
+        self._embedding_engine = embedding_engine
         self._text_builder = text_builder
 
     def calculate_similarities(
         self,
         pairs: list[ArticlePair],
     ) -> list[SimilarityResult]:
-        texts = [
-            text
-            for pair in pairs
-            for text in (
-                self._text_builder.build(
-                    pair.left_title,
-                    pair.left_summary,
-                ),
-                self._text_builder.build(
-                    pair.right_title,
-                    pair.right_summary,
-                ),
-            )
-        ]
-        embeddings = self._embedding_model.encode(texts)
+        
+        left_embeddings = self._embedding_engine.encode(
+            self._build_left_texts(pairs)
+        )
 
-        if len(embeddings) != len(texts):
-            raise ValueError(
-                "Embedding model returned an unexpected number "
-                "of embeddings."
-            )
+        right_embeddings = self._embedding_engine.encode(
+            self._build_right_texts(pairs)
+        )
 
+        self._validate_embedding_count(
+            pairs,
+            left_embeddings,
+            "left",
+        )
+        self._validate_embedding_count(
+            pairs,
+            right_embeddings,
+            "right",
+        )
+
+        return self._create_similarity_results(
+            pairs,
+            left_embeddings,
+            right_embeddings,
+        )
+
+    def _create_similarity_results(
+        self,
+        pairs: list[ArticlePair],
+        left_embeddings: list[list[float]],
+        right_embeddings: list[list[float]],
+    ) -> list[SimilarityResult]:
+        results: list[SimilarityResult] = []
+
+        paired_embeddings = zip(
+            pairs,
+            left_embeddings,
+            right_embeddings,
+            strict=True,
+        )
+
+        for pair, left_embedding, right_embedding in paired_embeddings:
+
+            result = self._create_similarity_result(
+                pair,
+                left_embedding,
+                right_embedding,
+            )
+            
+            results.append(result)
+
+        return results
+
+    def _create_similarity_result(
+        self,
+        pair: ArticlePair,
+        left_embedding: list[float],
+        right_embedding: list[float],
+    ) -> SimilarityResult:
+        
+        return SimilarityResult(
+            pair_id=pair.pair_id,
+            similarity=self._cosine_similarity(
+                left_embedding,
+                right_embedding,
+            ),
+            same_event=pair.same_event,
+        )
+
+    def _build_left_texts(
+        self,
+        pairs: list[ArticlePair],
+    ) -> list[str]:
         return [
-            SimilarityResult(
-                pair_id=pair.pair_id,
-                similarity=self._cosine_similarity(
-                    embeddings[index * 2],
-                    embeddings[index * 2 + 1],
-                ),
-                same_event=pair.same_event,
+            self._text_builder.build(
+                pair.left_title,
+                pair.left_summary,
             )
-            for index, pair in enumerate(pairs)
+            for pair in pairs
         ]
+
+    def _build_right_texts(
+        self,
+        pairs: list[ArticlePair],
+    ) -> list[str]:
+        return [
+            self._text_builder.build(
+                pair.right_title,
+                pair.right_summary,
+            )
+            for pair in pairs
+        ]
+
+    @staticmethod
+    def _validate_embedding_count(
+        pairs: list[ArticlePair],
+        embeddings: list[list[float]],
+        side: str,
+    ) -> None:
+        if len(embeddings) != len(pairs):
+            raise ValueError(
+                f"Embedding engine returned an unexpected number "
+                f"of {side} embeddings."
+            )
 
     def find_best_threshold(
         self,
