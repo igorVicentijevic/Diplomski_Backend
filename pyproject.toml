@@ -23,10 +23,13 @@ dev = [
     "aiosqlite>=0.21,<1.0",
     "pytest>=8.4,<9.0",
 ]
+semantic-experiments = [
+    "sentence-transformers>=6.1,<7.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
-include = ["app*"]
+include = ["app*", "experiments*"]
 namespaces = false
