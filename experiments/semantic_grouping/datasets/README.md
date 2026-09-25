@@ -1,7 +1,8 @@
 # Semantic grouping dataset
 
-`article_pairs.jsonl` contains manually labelled article pairs used to
-evaluate semantic grouping models. Each line is one JSON object:
+`candidates.jsonl` is the working file used for manual labelling.
+`article_pairs_v1.jsonl` is the frozen, labelled-only snapshot used for the
+first model comparison. Each line is one JSON object:
 
 ```json
 {
@@ -30,6 +31,8 @@ event, `false` when they do not, and `null` while the pair is waiting for
 manual labelling. `candidateType` records the generator stratum and is not
 a ground-truth label.
 
-The first useful dataset should contain at least 50 positive and 50
-negative pairs. At least half of the negative pairs should be hard
-negatives: semantically related articles about different concrete events.
+The v1 snapshot is preliminary because it contains 11 positive and 98
+negative pairs. At least half of the negative pairs are hard negatives:
+semantically related articles about different concrete events. Model
+selection and thresholds must be recalculated after collecting more positive
+examples.

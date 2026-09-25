@@ -11,3 +11,4 @@ class ArticlePair:
     left: EvaluationArticle
     right: EvaluationArticle
     same_event: bool | None
+    candidate_type: str | None = None

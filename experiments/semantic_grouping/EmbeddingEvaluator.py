@@ -96,6 +96,7 @@ class EmbeddingEvaluator:
                 right_embedding,
             ),
             same_event=self._require_label(pair),
+            candidate_type=pair.candidate_type,
         )
 
     def _build_left_texts(

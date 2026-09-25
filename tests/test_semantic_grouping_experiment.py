@@ -29,6 +29,9 @@ from experiments.semantic_grouping.label_dataset import (
     load_entries,
     save_entries,
 )
+from experiments.semantic_grouping.prepare_evaluation_dataset import (
+    prepare_dataset,
+)
 from experiments.semantic_grouping.models.ArticlePair import ArticlePair
 from experiments.semantic_grouping.models.EvaluationArticle import (
     EvaluationArticle,
@@ -41,6 +44,9 @@ from experiments.semantic_grouping.services.ArticlePairGenerator import (
     PROBABLE_SAME_EVENT,
     RANDOM_NEGATIVE,
     ArticlePairGenerator,
+)
+from experiments.semantic_grouping.services.ModelBenchmarkService import (
+    ModelBenchmarkService,
 )
 
 PUBLISHED_AT = datetime(2026, 9, 25, 12, 0, tzinfo=UTC)
@@ -391,6 +397,8 @@ def test_cli_modules_run_from_experiments_directory() -> None:
         "semantic_grouping.generate_dataset",
         "semantic_grouping.label_dataset",
         "semantic_grouping.evaluate",
+        "semantic_grouping.prepare_evaluation_dataset",
+        "semantic_grouping.compare_models",
     ):
         result = subprocess.run(
             [sys.executable, "-m", module, "--help"],
@@ -400,3 +408,197 @@ def test_cli_modules_run_from_experiments_directory() -> None:
             check=False,
         )
         assert result.returncode == 0, result.stderr
+
+
+def test_prepare_evaluation_dataset_freezes_only_labelled_pairs(
+    tmp_path: Path,
+) -> None:
+    input_path = tmp_path / "candidates.jsonl"
+    output_path = tmp_path / "article_pairs_v1.jsonl"
+    positive = create_pair_payload(True)
+    positive["candidateType"] = PROBABLE_SAME_EVENT
+    negative = create_pair_payload(False)
+    negative["id"] = "pair-2"
+    negative["candidateType"] = HARD_NEGATIVE
+    excluded = create_pair_payload(None)
+    excluded["id"] = "pair-3"
+    input_path.write_text(
+        "\n".join(
+            json.dumps(payload)
+            for payload in (positive, negative, excluded)
+        ),
+        encoding="utf-8",
+    )
+
+    statistics = prepare_dataset(input_path, output_path)
+
+    frozen_entries = [
+        json.loads(line)
+        for line in output_path.read_text(
+            encoding="utf-8"
+        ).splitlines()
+    ]
+    assert [entry["id"] for entry in frozen_entries] == [
+        "pair-1",
+        "pair-2",
+    ]
+    assert statistics == {
+        "positive": 1,
+        "negative": 1,
+        "hardNegative": 1,
+        "excluded": 1,
+    }
+
+
+def test_model_benchmark_uses_leakage_safe_shared_folds() -> None:
+    pairs = [
+        ArticlePair(
+            pair_id="positive-1",
+            left=create_evaluation_article(
+                "shared",
+                "Left",
+                "Same",
+                "RTS",
+            ),
+            right=create_evaluation_article(
+                "positive-right",
+                "Right",
+                "Same",
+                "N1",
+            ),
+            same_event=True,
+            candidate_type=PROBABLE_SAME_EVENT,
+        ),
+        ArticlePair(
+            pair_id="negative-shared",
+            left=create_evaluation_article(
+                "shared",
+                "Left",
+                "Same",
+                "RTS",
+            ),
+            right=create_evaluation_article(
+                "other",
+                "Other",
+                "Different",
+                "Danas",
+            ),
+            same_event=False,
+            candidate_type=HARD_NEGATIVE,
+        ),
+        ArticlePair(
+            pair_id="positive-2",
+            left=create_evaluation_article(
+                "second-left",
+                "Left",
+                "Same",
+                "RTS",
+            ),
+            right=create_evaluation_article(
+                "second-right",
+                "Right",
+                "Same",
+                "N1",
+            ),
+            same_event=True,
+            candidate_type=PROBABLE_SAME_EVENT,
+        ),
+        ArticlePair(
+            pair_id="negative-2",
+            left=create_evaluation_article(
+                "third-left",
+                "Other",
+                "Different",
+                "Danas",
+            ),
+            right=create_evaluation_article(
+                "third-right",
+                "Right",
+                "Same",
+                "N1",
+            ),
+            same_event=False,
+            candidate_type=HARD_NEGATIVE,
+        ),
+    ]
+    service = ModelBenchmarkService(
+        pairs,
+        fold_count=3,
+        threshold_start=0.5,
+        threshold_end=0.9,
+        threshold_step=0.1,
+    )
+
+    fold_by_pair = {
+        pair_id: fold_index
+        for fold_index, pair_ids in enumerate(
+            service.fold_pair_ids
+        )
+        for pair_id in pair_ids
+    }
+
+    assert fold_by_pair["positive-1"] == fold_by_pair[
+        "negative-shared"
+    ]
+
+
+def test_model_benchmark_reports_errors_and_hard_negatives() -> None:
+    left = create_evaluation_article(
+        "left",
+        "Left",
+        "Same",
+        "RTS",
+    )
+    pairs = [
+        ArticlePair(
+            pair_id="same",
+            left=left,
+            right=create_evaluation_article(
+                "right",
+                "Right",
+                "Same",
+                "N1",
+            ),
+            same_event=True,
+            candidate_type=PROBABLE_SAME_EVENT,
+        ),
+        ArticlePair(
+            pair_id="different",
+            left=create_evaluation_article(
+                "other-left",
+                "Other",
+                "Different",
+                "Danas",
+            ),
+            right=create_evaluation_article(
+                "other-right",
+                "Right",
+                "Same",
+                "N1",
+            ),
+            same_event=False,
+            candidate_type=HARD_NEGATIVE,
+        ),
+    ]
+    service = ModelBenchmarkService(
+        pairs,
+        fold_count=2,
+        threshold_start=0.5,
+        threshold_end=0.9,
+        threshold_step=0.1,
+    )
+
+    reports = service.benchmark(
+        ["model-a", "model-b"],
+        lambda _: FakeEmbeddingEngine(),
+    )
+
+    assert len(reports) == 2
+    assert all(
+        report.hard_negative_metrics["pairCount"] == 1
+        for report in reports
+    )
+    assert all(
+        len(report.pair_results) == 2
+        for report in reports
+    )
