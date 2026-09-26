@@ -1,13 +1,15 @@
 import asyncio
 
 from app.articles.models.ArticleModel import ArticleModel
-from app.semantic_grouping.ArticleTextBuilder import ArticleTextBuilder
+from app.semantic_grouping.grouping.ArticleTextBuilder import (
+    ArticleTextBuilder,
+)
 from app.semantic_grouping.embedding_engine.EmbeddingEngine import (
     EmbeddingEngine,
 )
 
 
-class ArticleEmbeddingService:
+class ArticleEmbeddingGenerator:
     def __init__(
         self,
         embedding_engine: EmbeddingEngine,

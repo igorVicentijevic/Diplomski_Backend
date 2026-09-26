@@ -26,6 +26,7 @@ class SemanticPairEvaluator:
         pairs: list[CandidateArticlePair],
         embedding_by_article_id: dict[str, list[float]],
     ) -> list[SemanticGroupingDecision]:
+        
         return [
             self._evaluate_pair(pair, embedding_by_article_id)
             for pair in pairs
@@ -36,22 +37,28 @@ class SemanticPairEvaluator:
         pair: CandidateArticlePair,
         embedding_by_article_id: dict[str, list[float]],
     ) -> SemanticGroupingDecision:
+        
         similarity = self._cosine_similarity(
             embedding_by_article_id[pair.left.id],
             embedding_by_article_id[pair.right.id],
         )
+        # Determine if the similarity is within the boundary range before making a decision
         decision = SemanticGroupingDecision(
             left_article_id=pair.left.id,
             right_article_id=pair.right.id,
             similarity=similarity,
+
             predicted_same_event=(
                 similarity >= self._configuration.threshold
             ),
+
             is_boundary_candidate=self._is_boundary_similarity(
                 similarity
             ),
         )
+        # Log the decision if it is a boundary candidate
         self._log_boundary_decision(decision)
+
         return decision
 
     def _is_boundary_similarity(self, similarity: float) -> bool:

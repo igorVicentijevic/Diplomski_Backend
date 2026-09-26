@@ -20,6 +20,10 @@ from app.articles.models.ArticleToneAnalysisModel import (
 from app.database.Base import Base
 from app.database.session import get_session
 from app.main import app
+from app.semantic_grouping.models.ArticleGroupMembershipModel import (
+    ArticleGroupMembershipModel,
+)
+from app.semantic_grouping.models.ArticleGroupModel import ArticleGroupModel
 from app.semantic_grouping.models.SemanticGroupingDecisionModel import (
     SemanticGroupingDecisionModel,
 )
@@ -151,6 +155,49 @@ def test_database(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
                     tone=ArticleToneAnalysisModel(**analysis),
                 )
                 for analysis in TEST_ANALYSES
+            )
+            session.add(
+                ArticleGroupModel(
+                    id="group-1",
+                    created_at=datetime(
+                        2026,
+                        9,
+                        23,
+                        19,
+                        0,
+                        tzinfo=UTC,
+                    ),
+                    updated_at=datetime(
+                        2026,
+                        9,
+                        23,
+                        19,
+                        0,
+                        tzinfo=UTC,
+                    ),
+                    latest_article_at=TEST_ARTICLES[0]["published_at"],
+                    active=True,
+                )
+            )
+            session.add_all(
+                [
+                    ArticleGroupMembershipModel(
+                        group_id="group-1",
+                        article_id="article-1",
+                    ),
+                    ArticleGroupMembershipModel(
+                        group_id="group-1",
+                        article_id="article-2",
+                    ),
+                    ArticleGroupMembershipModel(
+                        group_id="group-1",
+                        article_id="inactive-article",
+                    ),
+                    ArticleGroupMembershipModel(
+                        group_id="group-1",
+                        article_id="article-without-analysis",
+                    ),
+                ]
             )
             session.add(
                 SemanticGroupingRunModel(

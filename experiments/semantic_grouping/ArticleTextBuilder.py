@@ -1,3 +1,5 @@
-from app.semantic_grouping.ArticleTextBuilder import ArticleTextBuilder
+from app.semantic_grouping.grouping.ArticleTextBuilder import (
+    ArticleTextBuilder,
+)
 
 __all__ = ["ArticleTextBuilder"]

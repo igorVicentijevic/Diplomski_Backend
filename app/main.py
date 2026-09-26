@@ -41,23 +41,25 @@ from app.services.news_sources.NewsSourcePollingService import (
 from app.semantic_grouping.embedding_engine.SentenceTransformerEmbeddingEngine import (
     SentenceTransformerEmbeddingEngine,
 )
-from app.semantic_grouping.ArticleTextBuilder import ArticleTextBuilder
+from app.semantic_grouping.grouping.ArticleTextBuilder import (
+    ArticleTextBuilder,
+)
 from app.semantic_grouping.models.SemanticGroupingConfiguration import (
     SemanticGroupingConfiguration,
 )
-from app.semantic_grouping.services.ArticleEmbeddingService import (
-    ArticleEmbeddingService,
+from app.semantic_grouping.grouping.ArticleEmbeddingGenerator import (
+    ArticleEmbeddingGenerator,
 )
-from app.semantic_grouping.services.CandidateArticlePairGenerator import (
+from app.semantic_grouping.grouping.CandidateArticlePairGenerator import (
     CandidateArticlePairGenerator,
 )
-from app.semantic_grouping.services.ProposedGroupAssigner import (
+from app.semantic_grouping.grouping.ProposedGroupAssigner import (
     ProposedGroupAssigner,
 )
-from app.semantic_grouping.services.SemanticGroupingRunFactory import (
+from app.semantic_grouping.grouping.SemanticGroupingRunFactory import (
     SemanticGroupingRunFactory,
 )
-from app.semantic_grouping.services.SemanticPairEvaluator import (
+from app.semantic_grouping.grouping.SemanticPairEvaluator import (
     SemanticPairEvaluator,
 )
 from app.semantic_grouping.services.ShadowSemanticGroupingService import (
@@ -101,7 +103,7 @@ shadow_grouping_service = (
     ShadowSemanticGroupingService(
         session_factory=AsyncSessionFactory,
         configuration=semantic_grouping_configuration,
-        embedding_service=ArticleEmbeddingService(
+        embedding_generator=ArticleEmbeddingGenerator(
             embedding_engine=SentenceTransformerEmbeddingEngine(
                 semantic_grouping_configuration.model_name
             ),

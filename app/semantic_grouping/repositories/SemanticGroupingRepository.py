@@ -6,6 +6,10 @@ from sqlalchemy.orm import selectinload
 
 from app.articles.models.ArticleAnalysisModel import ArticleAnalysisModel
 from app.articles.models.ArticleModel import ArticleModel
+from app.semantic_grouping.models.ArticleGroupMembershipModel import (
+    ArticleGroupMembershipModel,
+)
+from app.semantic_grouping.models.ArticleGroupModel import ArticleGroupModel
 from app.semantic_grouping.models.SemanticGroupingDecisionModel import (
     SemanticGroupingDecisionModel,
 )
@@ -40,6 +44,55 @@ class SemanticGroupingRepository:
         self._session.add(run)
         await self._session.flush()
         self._session.add_all(decisions)
+
+    async def list_article_groups(self) -> list[ArticleGroupModel]:
+        result = await self._session.scalars(
+            select(ArticleGroupModel).order_by(ArticleGroupModel.id)
+        )
+        return list(result)
+
+    async def list_active_article_groups(self) -> list[ArticleGroupModel]:
+        result = await self._session.scalars(
+            select(ArticleGroupModel)
+            .where(ArticleGroupModel.active.is_(True))
+            .order_by(ArticleGroupModel.latest_article_at.desc())
+        )
+        return list(result)
+
+    async def list_group_memberships(
+        self,
+        group_ids: set[str],
+    ) -> dict[str, set[str]]:
+        if not group_ids:
+            return {}
+
+        rows = await self._session.execute(
+            select(
+                ArticleGroupMembershipModel.group_id,
+                ArticleGroupMembershipModel.article_id,
+            ).where(
+                ArticleGroupMembershipModel.group_id.in_(group_ids)
+            )
+        )
+        memberships = {group_id: set() for group_id in group_ids}
+        for group_id, article_id in rows:
+            memberships[group_id].add(article_id)
+        return memberships
+
+    async def add_article_groups(
+        self,
+        groups: list[ArticleGroupModel],
+    ) -> None:
+        if not groups:
+            return
+        self._session.add_all(groups)
+        await self._session.flush()
+
+    def add_group_memberships(
+        self,
+        memberships: list[ArticleGroupMembershipModel],
+    ) -> None:
+        self._session.add_all(memberships)
 
     async def list_boundary_decisions(
         self,

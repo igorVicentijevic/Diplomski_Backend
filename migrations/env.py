@@ -16,6 +16,10 @@ from app.database.Base import Base
 from app.semantic_grouping.models.SemanticGroupingDecisionModel import (
     SemanticGroupingDecisionModel,
 )
+from app.semantic_grouping.models.ArticleGroupMembershipModel import (
+    ArticleGroupMembershipModel,
+)
+from app.semantic_grouping.models.ArticleGroupModel import ArticleGroupModel
 from app.semantic_grouping.models.SemanticGroupingRunModel import (
     SemanticGroupingRunModel,
 )
@@ -24,6 +28,8 @@ _models = (
     ArticleModel,
     ArticleAnalysisModel,
     ArticleToneAnalysisModel,
+    ArticleGroupModel,
+    ArticleGroupMembershipModel,
     SemanticGroupingRunModel,
     SemanticGroupingDecisionModel,
 )
