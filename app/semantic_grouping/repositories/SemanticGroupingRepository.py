@@ -2,7 +2,9 @@ from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
+from app.articles.models.ArticleAnalysisModel import ArticleAnalysisModel
 from app.articles.models.ArticleModel import ArticleModel
 from app.semantic_grouping.models.SemanticGroupingDecisionModel import (
     SemanticGroupingDecisionModel,
@@ -105,6 +107,29 @@ class SemanticGroupingRepository:
         result = await self._session.scalars(
             select(ArticleModel).where(
                 ArticleModel.id.in_(article_ids)
+            )
+        )
+        return list(result)
+
+    async def list_active_analyzed_articles_by_ids(
+        self,
+        article_ids: set[str],
+    ) -> list[ArticleModel]:
+        if not article_ids:
+            return []
+
+        result = await self._session.scalars(
+            select(ArticleModel)
+            .join(ArticleModel.analysis)
+            .join(ArticleAnalysisModel.tone)
+            .options(
+                selectinload(ArticleModel.analysis).selectinload(
+                    ArticleAnalysisModel.tone
+                )
+            )
+            .where(
+                ArticleModel.id.in_(article_ids),
+                ArticleModel.is_active.is_(True),
             )
         )
         return list(result)

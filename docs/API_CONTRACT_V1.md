@@ -133,6 +133,25 @@ Accept: application/json
           "neutralPercentage": 60.0
         }
       }
+    },
+    {
+      "id": "article-2",
+      "title": "Druga vest o istom dogadjaju",
+      "summary": "Izvestaj drugog izvora o istom dogadjaju.",
+      "source": "Drugi izvor",
+      "category": "SERBIA",
+      "publishedAt": "2026-09-23T17:45:00Z",
+      "imageUrl": null,
+      "articleUrl": "https://example.com/articles/2",
+      "relatedCityIds": [],
+      "analysis": {
+        "processedAt": "2026-09-24T14:31:00Z",
+        "tone": {
+          "negativePercentage": 20.0,
+          "positivePercentage": 20.0,
+          "neutralPercentage": 60.0
+        }
+      }
     }
   ]
 }
@@ -197,6 +216,68 @@ Response body je jedan `Article` objekat.
 ```json
 {
   "detail": "Article not found"
+}
+```
+
+## GET /api/article-groups
+
+Vraca semanticke grupe iz poslednjeg grouping run-a. U odgovor ulaze samo
+aktivni i potpuno analizirani clanci. Grupa se ne vraca ako nakon tog
+filtriranja sadrzi manje od dva clanka.
+
+Grupe su sortirane prema vremenu najnovijeg clanka, od najnovije ka
+najstarijoj. Clanci unutar grupe koriste isti redosled.
+
+### Request
+
+Nema query parametara ni request body-ja.
+
+```http
+GET /api/article-groups
+Accept: application/json
+```
+
+### Response: 200 OK
+
+```json
+{
+  "groups": [
+    {
+      "id": "shadow-769bd79579c4f129",
+      "articles": [
+        {
+          "id": "article-1",
+          "title": "Prva vest",
+          "summary": "Privremeni clanak za prvu iteraciju Articles API-ja.",
+          "source": "Demo izvor",
+          "category": "SERBIA",
+          "publishedAt": "2026-09-23T18:00:00Z",
+          "imageUrl": null,
+          "articleUrl": "https://example.com/articles/1",
+          "relatedCityIds": [
+            "beograd"
+          ],
+          "analysis": {
+            "processedAt": "2026-09-24T14:30:00Z",
+            "tone": {
+              "negativePercentage": 15.0,
+              "positivePercentage": 25.0,
+              "neutralPercentage": 60.0
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+Kada grouping run ne postoji ili nema grupa sa najmanje dva vidljiva
+clanka, `groups` je prazna lista:
+
+```json
+{
+  "groups": []
 }
 ```
 

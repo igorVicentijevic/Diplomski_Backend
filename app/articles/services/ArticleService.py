@@ -13,7 +13,7 @@ class ArticleService:
 
         articles = await self._article_repository.list_articles()
 
-        return [self._to_response(article) for article in articles]
+        return [self.to_response(article) for article in articles]
 
     async def get_article(
         self,
@@ -22,10 +22,10 @@ class ArticleService:
         
         article = await self._article_repository.get_article(article_id)
 
-        return self._to_response(article) if article is not None else None
+        return self.to_response(article) if article is not None else None
 
     @staticmethod
-    def _to_response(article: ArticleModel) -> ArticleResponse:
+    def to_response(article: ArticleModel) -> ArticleResponse:
         if article.analysis is None or article.analysis.tone is None:
             raise ValueError("Article analysis is incomplete.")
 

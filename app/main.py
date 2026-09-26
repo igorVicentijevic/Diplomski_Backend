@@ -4,6 +4,7 @@ from datetime import timedelta
 
 from fastapi import FastAPI
 
+from app.api.routes.article_groups import router as article_groups_router
 from app.api.routes.articles import router as articles_router
 from app.config.Settings import get_settings
 from app.database.session import AsyncSessionFactory
@@ -162,6 +163,7 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+app.include_router(article_groups_router, prefix="/api")
 app.include_router(articles_router, prefix="/api")
 
 

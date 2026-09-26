@@ -29,6 +29,7 @@ Available endpoints:
 - `GET /health`
 - `GET /api/articles`
 - `GET /api/articles/{article_id}`
+- `GET /api/article-groups`
 
 The frontend API contract is documented in
 [`docs/API_CONTRACT_V1.md`](docs/API_CONTRACT_V1.md).

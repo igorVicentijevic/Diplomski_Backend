@@ -20,6 +20,12 @@ from app.articles.models.ArticleToneAnalysisModel import (
 from app.database.Base import Base
 from app.database.session import get_session
 from app.main import app
+from app.semantic_grouping.models.SemanticGroupingDecisionModel import (
+    SemanticGroupingDecisionModel,
+)
+from app.semantic_grouping.models.SemanticGroupingRunModel import (
+    SemanticGroupingRunModel,
+)
 
 client = TestClient(app)
 
@@ -146,6 +152,55 @@ def test_database(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
                 )
                 for analysis in TEST_ANALYSES
             )
+            session.add(
+                SemanticGroupingRunModel(
+                    id="latest-run",
+                    model_name="test-model",
+                    threshold=0.69,
+                    boundary_min=0.60,
+                    boundary_max=0.80,
+                    candidate_window_hours=72,
+                    article_count=4,
+                    pair_count=3,
+                    positive_pair_count=3,
+                    boundary_pair_count=0,
+                    created_at=datetime(2026, 9, 23, 19, 0, tzinfo=UTC),
+                )
+            )
+            session.add_all(
+                [
+                    SemanticGroupingDecisionModel(
+                        id="decision-1",
+                        run_id="latest-run",
+                        left_article_id="article-1",
+                        right_article_id="article-2",
+                        similarity=0.9,
+                        predicted_same_event=True,
+                        proposed_group_id="group-1",
+                        is_boundary_candidate=False,
+                    ),
+                    SemanticGroupingDecisionModel(
+                        id="decision-2",
+                        run_id="latest-run",
+                        left_article_id="article-1",
+                        right_article_id="inactive-article",
+                        similarity=0.85,
+                        predicted_same_event=True,
+                        proposed_group_id="group-1",
+                        is_boundary_candidate=False,
+                    ),
+                    SemanticGroupingDecisionModel(
+                        id="decision-3",
+                        run_id="latest-run",
+                        left_article_id="article-1",
+                        right_article_id="article-without-analysis",
+                        similarity=0.8,
+                        predicted_same_event=True,
+                        proposed_group_id="group-1",
+                        is_boundary_candidate=True,
+                    ),
+                ]
+            )
             await session.commit()
 
     async def override_get_session() -> AsyncIterator[AsyncSession]:
@@ -215,6 +270,21 @@ def test_get_article() -> None:
         "positivePercentage": 55.0,
         "neutralPercentage": 25.0,
     }
+
+
+def test_list_article_groups() -> None:
+    response = client.get("/api/article-groups")
+
+    assert response.status_code == 200
+    groups = response.json()["groups"]
+    assert len(groups) == 1
+    assert groups[0]["id"] == "group-1"
+    articles = groups[0]["articles"]
+    assert [article["id"] for article in articles] == [
+        "article-1",
+        "article-2",
+    ]
+    assert all(article["analysis"]["tone"] for article in articles)
 
 
 def test_get_missing_article() -> None:
