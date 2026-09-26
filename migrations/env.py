@@ -19,6 +19,9 @@ from app.semantic_grouping.models.SemanticGroupingDecisionModel import (
 from app.semantic_grouping.models.SemanticGroupingRunModel import (
     SemanticGroupingRunModel,
 )
+from app.vectordb.models.ArticleEmbeddingModel import (
+    ArticleEmbeddingModel,
+)
 
 _models = (
     ArticleModel,
@@ -26,6 +29,7 @@ _models = (
     ArticleToneAnalysisModel,
     SemanticGroupingRunModel,
     SemanticGroupingDecisionModel,
+    ArticleEmbeddingModel,
 )
 
 config = context.config

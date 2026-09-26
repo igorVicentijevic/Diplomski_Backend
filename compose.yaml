@@ -1,6 +1,6 @@
 services:
   database:
-    image: postgres:17-alpine
+    image: pgvector/pgvector:pg17
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-news_aggregator}
       POSTGRES_USER: ${POSTGRES_USER:-news}

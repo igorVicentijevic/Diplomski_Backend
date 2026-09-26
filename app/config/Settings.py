@@ -45,6 +45,10 @@ class Settings(BaseSettings):
         default=72,
         gt=0,
     )
+    semantic_grouping_embedding_dimensions: int = Field(
+        default=512,
+        gt=0,
+    )
 
 
 @lru_cache

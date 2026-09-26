@@ -50,6 +50,12 @@ from app.semantic_grouping.models.SemanticGroupingConfiguration import (
 from app.semantic_grouping.grouping.ArticleEmbeddingGenerator import (
     ArticleEmbeddingGenerator,
 )
+from app.semantic_grouping.grouping.ArticleEmbeddingInputHasher import (
+    ArticleEmbeddingInputHasher,
+)
+from app.semantic_grouping.grouping.ArticleEmbeddingRequestFactory import (
+    ArticleEmbeddingRequestFactory,
+)
 from app.semantic_grouping.grouping.CandidateArticlePairGenerator import (
     CandidateArticlePairGenerator,
 )
@@ -64,6 +70,9 @@ from app.semantic_grouping.grouping.SemanticPairEvaluator import (
 )
 from app.semantic_grouping.services.ShadowSemanticGroupingService import (
     ShadowSemanticGroupingService,
+)
+from app.semantic_grouping.services.ArticleEmbeddingService import (
+    ArticleEmbeddingService,
 )
 from app.tone_analysis.services.ExistingToneAnalysisLoader import (
     ExistingToneAnalysisLoader,
@@ -98,16 +107,29 @@ semantic_grouping_configuration = SemanticGroupingConfiguration(
     candidate_window=timedelta(
         hours=settings.semantic_grouping_candidate_window_hours
     ),
+    embedding_dimensions=(
+        settings.semantic_grouping_embedding_dimensions
+    ),
 )
 shadow_grouping_service = (
     ShadowSemanticGroupingService(
         session_factory=AsyncSessionFactory,
         configuration=semantic_grouping_configuration,
-        embedding_generator=ArticleEmbeddingGenerator(
-            embedding_engine=SentenceTransformerEmbeddingEngine(
-                semantic_grouping_configuration.model_name
+        embedding_provider=ArticleEmbeddingService(
+            session_factory=AsyncSessionFactory,
+            request_factory=ArticleEmbeddingRequestFactory(
+                text_builder=ArticleTextBuilder(),
+                input_hasher=ArticleEmbeddingInputHasher(),
             ),
-            text_builder=ArticleTextBuilder(),
+            generator=ArticleEmbeddingGenerator(
+                embedding_engine=SentenceTransformerEmbeddingEngine(
+                    semantic_grouping_configuration.model_name
+                ),
+                expected_dimensions=(
+                    semantic_grouping_configuration.embedding_dimensions
+                ),
+            ),
+            model_name=semantic_grouping_configuration.model_name,
         ),
         pair_generator=CandidateArticlePairGenerator(
             semantic_grouping_configuration.candidate_window

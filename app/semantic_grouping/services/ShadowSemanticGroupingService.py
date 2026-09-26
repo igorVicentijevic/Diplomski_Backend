@@ -18,8 +18,8 @@ from app.semantic_grouping.models.SemanticGroupingRunModel import (
 from app.semantic_grouping.repositories.SemanticGroupingRepository import (
     SemanticGroupingRepository,
 )
-from app.semantic_grouping.grouping.ArticleEmbeddingGenerator import (
-    ArticleEmbeddingGenerator,
+from app.semantic_grouping.grouping.ArticleEmbeddingProvider import (
+    ArticleEmbeddingProvider,
 )
 from app.semantic_grouping.grouping.CandidateArticlePairGenerator import (
     CandidateArticlePairGenerator,
@@ -40,7 +40,7 @@ class ShadowSemanticGroupingService:
         self,
         session_factory: async_sessionmaker[AsyncSession],
         configuration: SemanticGroupingConfiguration,
-        embedding_generator: ArticleEmbeddingGenerator,
+        embedding_provider: ArticleEmbeddingProvider,
         pair_generator: CandidateArticlePairGenerator,
         pair_evaluator: SemanticPairEvaluator,
         group_assigner: ProposedGroupAssigner,
@@ -48,7 +48,7 @@ class ShadowSemanticGroupingService:
     ) -> None:
         self._session_factory = session_factory
         self._configuration = configuration
-        self._embedding_generator = embedding_generator
+        self._embedding_provider = embedding_provider
         self._pair_generator = pair_generator
         self._pair_evaluator = pair_evaluator
         self._group_assigner = group_assigner
@@ -76,9 +76,7 @@ class ShadowSemanticGroupingService:
         if len(articles) < 2:
             return []
 
-        embeddings = await self._embedding_generator.create_embeddings(
-            articles
-        )
+        embeddings = await self._embedding_provider.provide(articles)
         pairs = self._pair_generator.generate(articles)
         return self._pair_evaluator.evaluate(pairs, embeddings)
 

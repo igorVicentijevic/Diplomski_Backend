@@ -19,6 +19,12 @@ from app.semantic_grouping.embedding_engine.EmbeddingEngine import (
 from app.semantic_grouping.grouping.ArticleEmbeddingGenerator import (
     ArticleEmbeddingGenerator,
 )
+from app.semantic_grouping.grouping.ArticleEmbeddingInputHasher import (
+    ArticleEmbeddingInputHasher,
+)
+from app.semantic_grouping.grouping.ArticleEmbeddingRequestFactory import (
+    ArticleEmbeddingRequestFactory,
+)
 from app.semantic_grouping.grouping.ArticleTextBuilder import (
     ArticleTextBuilder,
 )
@@ -37,6 +43,9 @@ from app.semantic_grouping.grouping.SemanticPairEvaluator import (
 from app.semantic_grouping.models.SemanticGroupingConfiguration import (
     SemanticGroupingConfiguration,
 )
+from app.semantic_grouping.models.ArticleEmbeddingRequest import (
+    ArticleEmbeddingRequest,
+)
 from app.semantic_grouping.models.SemanticGroupingDecisionModel import (
     SemanticGroupingDecisionModel,
 )
@@ -49,11 +58,17 @@ from app.semantic_grouping.repositories.SemanticGroupingRepository import (
 from app.semantic_grouping.services.ShadowSemanticGroupingService import (
     ShadowSemanticGroupingService,
 )
+from app.semantic_grouping.services.ArticleEmbeddingService import (
+    ArticleEmbeddingService,
+)
 from app.semantic_grouping.services.SemanticGroupingExportService import (
     SemanticGroupingExportService,
 )
 from app.services.news_sources.NewsSourcePollingService import (
     NewsSourcePollingService,
+)
+from app.vectordb.models.ArticleEmbeddingModel import (
+    ArticleEmbeddingModel,
 )
 from experiments.semantic_grouping.compare_models import (
     evaluate_calibration_readiness,
@@ -61,6 +76,9 @@ from experiments.semantic_grouping.compare_models import (
 
 
 class FakeEmbeddingEngine(EmbeddingEngine):
+    def __init__(self) -> None:
+        self.encoded_texts: list[list[str]] = []
+
     def encode(
         self,
         texts: Sequence[str],
@@ -77,6 +95,7 @@ class FakeEmbeddingEngine(EmbeddingEngine):
             ],
             "Title: Article D\nSummary: Other": [-1.0, 0.0],
         }
+        self.encoded_texts.append(list(texts))
         return [embeddings[text] for text in texts]
 
 
@@ -150,13 +169,16 @@ def test_shadow_grouping_persists_decisions_and_groups(
             boundary_min=0.60,
             boundary_max=0.80,
             candidate_window=timedelta(hours=72),
+            embedding_dimensions=2,
         )
+        embedding_engine = FakeEmbeddingEngine()
         service = ShadowSemanticGroupingService(
             session_factory=session_factory,
             configuration=configuration,
-            embedding_generator=ArticleEmbeddingGenerator(
-                embedding_engine=FakeEmbeddingEngine(),
-                text_builder=ArticleTextBuilder(),
+            embedding_provider=_create_embedding_service(
+                session_factory=session_factory,
+                configuration=configuration,
+                embedding_engine=embedding_engine,
             ),
             pair_generator=CandidateArticlePairGenerator(
                 configuration.candidate_window
@@ -193,7 +215,19 @@ def test_shadow_grouping_persists_decisions_and_groups(
             boundary_decisions = await SemanticGroupingRepository(
                 session
             ).list_boundary_decisions()
+            stored_embeddings = list(
+                await session.scalars(select(ArticleEmbeddingModel))
+            )
 
+        assert len(stored_embeddings) == 4
+        assert {
+            embedding.article_id for embedding in stored_embeddings
+        } == {"a", "b", "c", "d"}
+        assert all(
+            embedding.model_name == "distiluse-test"
+            and len(embedding.embedding) == 2
+            for embedding in stored_embeddings
+        )
         assert stored_run is not None
         assert stored_run.model_name == "distiluse-test"
         assert stored_run.threshold == 0.69
@@ -292,6 +326,129 @@ def test_repository_flushes_run_before_adding_decisions() -> None:
         session.add_all.assert_called_once_with(decisions)
 
     asyncio.run(run_test())
+
+
+def test_embedding_service_reuses_stored_embeddings(
+    tmp_path: Path,
+) -> None:
+    async def run_test() -> None:
+        database_url = URL.create(
+            drivername="sqlite+aiosqlite",
+            database=str(tmp_path / "article-embeddings.db"),
+        )
+        engine = create_async_engine(database_url)
+        session_factory = async_sessionmaker(
+            engine,
+            expire_on_commit=False,
+        )
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+
+        published_at = datetime.now(UTC) - timedelta(hours=1)
+        article = _create_article(
+            article_id="a",
+            source_id="source-a",
+            title="Article A",
+            summary="Event",
+            published_at=published_at,
+        )
+        async with session_factory() as session:
+            session.add(article)
+            await session.commit()
+
+        configuration = SemanticGroupingConfiguration(
+            model_name="distiluse-test",
+            threshold=0.69,
+            boundary_min=0.60,
+            boundary_max=0.80,
+            candidate_window=timedelta(hours=72),
+            embedding_dimensions=2,
+        )
+        embedding_engine = FakeEmbeddingEngine()
+        embedding_service = _create_embedding_service(
+            session_factory=session_factory,
+            configuration=configuration,
+            embedding_engine=embedding_engine,
+        )
+
+        first = await embedding_service.provide([article])
+        second = await embedding_service.provide([article])
+
+        assert first == {"a": [1.0, 0.0]}
+        assert second == first
+        assert embedding_engine.encoded_texts == [
+            ["Title: Article A\nSummary: Event"]
+        ]
+
+        article.title = "Article D"
+        article.summary = "Other"
+        async with session_factory() as session:
+            await session.merge(article)
+            await session.commit()
+
+        third = await embedding_service.provide([article])
+
+        assert third == {"a": [-1.0, 0.0]}
+        assert embedding_engine.encoded_texts == [
+            ["Title: Article A\nSummary: Event"],
+            ["Title: Article D\nSummary: Other"],
+        ]
+
+        async with session_factory() as session:
+            stored_embeddings = list(
+                await session.scalars(select(ArticleEmbeddingModel))
+            )
+
+        assert len(stored_embeddings) == 1
+        assert stored_embeddings[0].embedding == [-1.0, 0.0]
+
+        await engine.dispose()
+
+    asyncio.run(run_test())
+
+
+def test_embedding_generator_rejects_unexpected_dimensions() -> None:
+    async def run_test() -> None:
+        generator = ArticleEmbeddingGenerator(
+            embedding_engine=FakeEmbeddingEngine(),
+            expected_dimensions=512,
+        )
+
+        try:
+            await generator.generate(
+                [
+                    ArticleEmbeddingRequest(
+                        article_id="a",
+                        text="Title: Article A\nSummary: Event",
+                        input_hash="hash",
+                    )
+                ]
+            )
+        except ValueError as error:
+            assert "512" in str(error)
+        else:
+            raise AssertionError("Expected a dimension mismatch error.")
+
+    asyncio.run(run_test())
+
+
+def _create_embedding_service(
+    session_factory: async_sessionmaker[AsyncSession],
+    configuration: SemanticGroupingConfiguration,
+    embedding_engine: EmbeddingEngine,
+) -> ArticleEmbeddingService:
+    return ArticleEmbeddingService(
+        session_factory=session_factory,
+        request_factory=ArticleEmbeddingRequestFactory(
+            text_builder=ArticleTextBuilder(),
+            input_hasher=ArticleEmbeddingInputHasher(),
+        ),
+        generator=ArticleEmbeddingGenerator(
+            embedding_engine=embedding_engine,
+            expected_dimensions=configuration.embedding_dimensions,
+        ),
+        model_name=configuration.model_name,
+    )
 
 
 def _create_article(
