@@ -37,10 +37,6 @@ from app.semantic_grouping.grouping.SemanticPairEvaluator import (
 from app.semantic_grouping.models.SemanticGroupingConfiguration import (
     SemanticGroupingConfiguration,
 )
-from app.semantic_grouping.models.ArticleGroupMembershipModel import (
-    ArticleGroupMembershipModel,
-)
-from app.semantic_grouping.models.ArticleGroupModel import ArticleGroupModel
 from app.semantic_grouping.models.SemanticGroupingDecisionModel import (
     SemanticGroupingDecisionModel,
 )
@@ -52,9 +48,6 @@ from app.semantic_grouping.repositories.SemanticGroupingRepository import (
 )
 from app.semantic_grouping.services.ShadowSemanticGroupingService import (
     ShadowSemanticGroupingService,
-)
-from app.semantic_grouping.services.ArticleGroupService import (
-    ArticleGroupService,
 )
 from app.semantic_grouping.services.SemanticGroupingExportService import (
     SemanticGroupingExportService,
@@ -230,92 +223,6 @@ def test_shadow_grouping_persists_decisions_and_groups(
             for decision in decisions
             if not decision.predicted_same_event
         )
-
-        async with session_factory() as session:
-            groups = list(
-                await session.scalars(select(ArticleGroupModel))
-            )
-            memberships = list(
-                await session.scalars(
-                    select(ArticleGroupMembershipModel)
-                )
-            )
-
-        assert len(groups) == 1
-        stable_group_id = groups[0].id
-        assert groups[0].active is True
-        assert {
-            membership.article_id for membership in memberships
-        } == {"a", "b", "c"}
-
-        newer_article = _create_article(
-            article_id="e",
-            source_id="source-e",
-            title="Article E",
-            summary="Event",
-            published_at=published_at + timedelta(minutes=30),
-        )
-        stale_group = ArticleGroupModel(
-            id="stale-group",
-            created_at=published_at,
-            updated_at=published_at,
-            latest_article_at=published_at,
-            active=True,
-        )
-        async with session_factory() as session:
-            async with session.begin():
-                session.add(newer_article)
-                session.add(stale_group)
-                await session.flush()
-                session.add(
-                    ArticleGroupMembershipModel(
-                        group_id=stale_group.id,
-                        article_id="d",
-                        added_at=published_at,
-                    )
-                )
-
-        reconciled_at = datetime.now(UTC)
-        async with session_factory() as session:
-            async with session.begin():
-                repository = SemanticGroupingRepository(session)
-                articles = await repository.list_articles_by_ids(
-                    {"b", "c", "e"}
-                )
-                await ArticleGroupService(repository).reconcile(
-                    {"next-proposal": {"b", "c", "e"}},
-                    articles,
-                    reconciled_at,
-                )
-
-        async with session_factory() as session:
-            stable_group = await session.get(
-                ArticleGroupModel,
-                stable_group_id,
-            )
-            deactivated_group = await session.get(
-                ArticleGroupModel,
-                "stale-group",
-            )
-            memberships = list(
-                await session.scalars(
-                    select(ArticleGroupMembershipModel).where(
-                        ArticleGroupMembershipModel.group_id
-                        == stable_group_id
-                    )
-                )
-            )
-
-        assert stable_group is not None
-        assert stable_group.active is True
-        assert stable_group.latest_article_at.replace(
-            tzinfo=UTC
-        ) == newer_article.published_at
-        assert deactivated_group is not None
-        assert deactivated_group.active is False
-        assert {
-            membership.article_id for membership in memberships
-        } == {"a", "b", "c", "e"}
         assert exported_path == export_path
         report = export_path.read_text(encoding="utf-8")
         assert "# Semantic grouping export" in report

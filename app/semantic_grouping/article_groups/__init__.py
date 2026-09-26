@@ -1,1 +1,1 @@
-"""Internal components of the persistent article-group subsystem."""
+"""Internal components for building article groups from a grouping run."""

@@ -18,9 +18,6 @@ from app.semantic_grouping.models.SemanticGroupingRunModel import (
 from app.semantic_grouping.repositories.SemanticGroupingRepository import (
     SemanticGroupingRepository,
 )
-from app.semantic_grouping.services.ArticleGroupService import (
-    ArticleGroupService,
-)
 from app.semantic_grouping.grouping.ArticleEmbeddingGenerator import (
     ArticleEmbeddingGenerator,
 )
@@ -106,31 +103,3 @@ class ShadowSemanticGroupingService:
                     run,
                     decisions,
                 )
-                proposed_groups = self._collect_proposed_groups(decisions)
-                await ArticleGroupService(repository).reconcile(
-                    proposed_groups,
-                    await repository.list_articles_by_ids(
-                        {
-                            article_id
-                            for article_ids in proposed_groups.values()
-                            for article_id in article_ids
-                        }
-                    ),
-                    run.created_at,
-                )
-
-    @staticmethod
-    def _collect_proposed_groups(
-        decisions: list[SemanticGroupingDecisionModel],
-    ) -> dict[str, set[str]]:
-        groups: dict[str, set[str]] = {}
-        for decision in decisions:
-            if decision.proposed_group_id is None:
-                continue
-            groups.setdefault(decision.proposed_group_id, set()).update(
-                (
-                    decision.left_article_id,
-                    decision.right_article_id,
-                )
-            )
-        return groups
