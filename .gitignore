@@ -3,4 +3,7 @@ __pycache__/
 .pytest_cache/
 *.py[cod]
 .env
-
+news_aggregator_backend.egg-info
+*/.DSStore
+.DS_Store
+**/.DS_Store
