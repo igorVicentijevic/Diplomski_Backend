@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from app.semantic_grouping.embedding_engine.EmbeddingEngine import (
     EmbeddingEngine,
 )
-from app.semantic_grouping.models.ArticleEmbeddingRequest import (
+from app.semantic_grouping.grouping.embedding.ArticleEmbeddingRequest import (
     ArticleEmbeddingRequest,
 )
 from app.vectordb.models.ArticleEmbedding import (

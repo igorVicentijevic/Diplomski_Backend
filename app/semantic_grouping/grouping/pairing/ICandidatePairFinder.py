@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
 from app.articles.models.ArticleModel import ArticleModel
-from app.semantic_grouping.models.ArticlePairSimilarity import (
+from app.semantic_grouping.grouping.pairing.ArticlePairSimilarity import (
     ArticlePairSimilarity,
 )
 

@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 from app.articles.models.ArticleModel import ArticleModel
-from app.semantic_grouping.models.CandidateArticlePair import (
+from app.semantic_grouping.grouping.pairing.CandidateArticlePair import (
     CandidateArticlePair,
 )
 

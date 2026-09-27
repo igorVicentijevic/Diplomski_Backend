@@ -1,4 +1,4 @@
-from app.semantic_grouping.grouping.ArticleTextBuilder import (
+from app.semantic_grouping.grouping.embedding.ArticleTextBuilder import (
     ArticleTextBuilder,
 )
 

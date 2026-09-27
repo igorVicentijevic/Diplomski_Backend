@@ -1,12 +1,12 @@
 import logging
 
-from app.semantic_grouping.models.ArticlePairSimilarity import (
+from app.semantic_grouping.grouping.pairing.ArticlePairSimilarity import (
     ArticlePairSimilarity,
 )
 from app.semantic_grouping.models.SemanticGroupingConfiguration import (
     SemanticGroupingConfiguration,
 )
-from app.semantic_grouping.models.SemanticGroupingDecision import (
+from app.semantic_grouping.grouping.decision.SemanticGroupingDecision import (
     SemanticGroupingDecision,
 )
 

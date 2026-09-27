@@ -16,37 +16,37 @@ from app.database.Base import Base
 from app.semantic_grouping.embedding_engine.EmbeddingEngine import (
     EmbeddingEngine,
 )
-from app.semantic_grouping.grouping.ArticleEmbeddingGenerator import (
+from app.semantic_grouping.grouping.embedding.ArticleEmbeddingGenerator import (
     ArticleEmbeddingGenerator,
 )
-from app.semantic_grouping.grouping.ArticleEmbeddingInputHasher import (
+from app.semantic_grouping.grouping.embedding.ArticleEmbeddingInputHasher import (
     ArticleEmbeddingInputHasher,
 )
-from app.semantic_grouping.grouping.ArticleEmbeddingRequestFactory import (
+from app.semantic_grouping.grouping.embedding.ArticleEmbeddingRequestFactory import (
     ArticleEmbeddingRequestFactory,
 )
-from app.semantic_grouping.grouping.ArticleTextBuilder import (
+from app.semantic_grouping.grouping.embedding.ArticleTextBuilder import (
     ArticleTextBuilder,
 )
-from app.semantic_grouping.grouping.CandidateArticlePairGenerator import (
+from app.semantic_grouping.grouping.pairing.CandidateArticlePairGenerator import (
     CandidateArticlePairGenerator,
 )
-from app.semantic_grouping.grouping.PythonCandidatePairFinder import (
+from app.semantic_grouping.grouping.pairing.PythonCandidatePairFinder import (
     PythonCandidatePairFinder,
 )
-from app.semantic_grouping.grouping.ProposedGroupAssigner import (
+from app.semantic_grouping.grouping.decision.ProposedGroupAssigner import (
     ProposedGroupAssigner,
 )
-from app.semantic_grouping.grouping.SemanticGroupingRunFactory import (
+from app.semantic_grouping.grouping.decision.SemanticGroupingRunFactory import (
     SemanticGroupingRunFactory,
 )
-from app.semantic_grouping.grouping.SemanticPairEvaluator import (
+from app.semantic_grouping.grouping.decision.SemanticPairEvaluator import (
     SemanticPairEvaluator,
 )
 from app.semantic_grouping.models.SemanticGroupingConfiguration import (
     SemanticGroupingConfiguration,
 )
-from app.semantic_grouping.models.ArticleEmbeddingRequest import (
+from app.semantic_grouping.grouping.embedding.ArticleEmbeddingRequest import (
     ArticleEmbeddingRequest,
 )
 from app.semantic_grouping.models.SemanticGroupingDecisionModel import (

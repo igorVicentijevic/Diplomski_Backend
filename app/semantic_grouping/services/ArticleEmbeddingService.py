@@ -3,16 +3,16 @@ from collections.abc import Sequence
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.articles.models.ArticleModel import ArticleModel
-from app.semantic_grouping.grouping.ArticleEmbeddingGenerator import (
+from app.semantic_grouping.grouping.embedding.ArticleEmbeddingGenerator import (
     ArticleEmbeddingGenerator,
 )
-from app.semantic_grouping.grouping.ArticleEmbeddingProvider import (
+from app.semantic_grouping.grouping.embedding.ArticleEmbeddingProvider import (
     ArticleEmbeddingProvider,
 )
-from app.semantic_grouping.grouping.ArticleEmbeddingRequestFactory import (
+from app.semantic_grouping.grouping.embedding.ArticleEmbeddingRequestFactory import (
     ArticleEmbeddingRequestFactory,
 )
-from app.semantic_grouping.models.ArticleEmbeddingRequest import (
+from app.semantic_grouping.grouping.embedding.ArticleEmbeddingRequest import (
     ArticleEmbeddingRequest,
 )
 from app.vectordb.models.ArticleEmbedding import (

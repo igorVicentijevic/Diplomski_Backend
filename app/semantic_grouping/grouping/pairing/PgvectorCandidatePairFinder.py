@@ -6,10 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import aliased
 
 from app.articles.models.ArticleModel import ArticleModel
-from app.semantic_grouping.grouping.ICandidatePairFinder import (
+from app.semantic_grouping.grouping.pairing.ICandidatePairFinder import (
     ICandidatePairFinder,
 )
-from app.semantic_grouping.models.ArticlePairSimilarity import (
+from app.semantic_grouping.grouping.pairing.ArticlePairSimilarity import (
     ArticlePairSimilarity,
 )
 from app.vectordb.models.ArticleEmbeddingModel import (

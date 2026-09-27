@@ -2,13 +2,13 @@ import math
 from collections.abc import Sequence
 
 from app.articles.models.ArticleModel import ArticleModel
-from app.semantic_grouping.grouping.CandidateArticlePairGenerator import (
+from app.semantic_grouping.grouping.pairing.CandidateArticlePairGenerator import (
     CandidateArticlePairGenerator,
 )
-from app.semantic_grouping.grouping.ICandidatePairFinder import (
+from app.semantic_grouping.grouping.pairing.ICandidatePairFinder import (
     ICandidatePairFinder,
 )
-from app.semantic_grouping.models.ArticlePairSimilarity import (
+from app.semantic_grouping.grouping.pairing.ArticlePairSimilarity import (
     ArticlePairSimilarity,
 )
 

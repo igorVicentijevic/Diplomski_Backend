@@ -1,13 +1,13 @@
 from collections.abc import Sequence
 
 from app.articles.models.ArticleModel import ArticleModel
-from app.semantic_grouping.grouping.ArticleEmbeddingInputHasher import (
+from app.semantic_grouping.grouping.embedding.ArticleEmbeddingInputHasher import (
     ArticleEmbeddingInputHasher,
 )
-from app.semantic_grouping.grouping.ArticleTextBuilder import (
+from app.semantic_grouping.grouping.embedding.ArticleTextBuilder import (
     ArticleTextBuilder,
 )
-from app.semantic_grouping.models.ArticleEmbeddingRequest import (
+from app.semantic_grouping.grouping.embedding.ArticleEmbeddingRequest import (
     ArticleEmbeddingRequest,
 )
 

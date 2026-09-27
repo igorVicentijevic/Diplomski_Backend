@@ -5,7 +5,7 @@ from app.articles.models.ArticleModel import ArticleModel
 from app.semantic_grouping.models.SemanticGroupingConfiguration import (
     SemanticGroupingConfiguration,
 )
-from app.semantic_grouping.models.SemanticGroupingDecision import (
+from app.semantic_grouping.grouping.decision.SemanticGroupingDecision import (
     SemanticGroupingDecision,
 )
 from app.semantic_grouping.models.SemanticGroupingDecisionModel import (

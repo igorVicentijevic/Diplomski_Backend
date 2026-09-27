@@ -1,6 +1,6 @@
 import hashlib
 
-from app.semantic_grouping.models.SemanticGroupingDecision import (
+from app.semantic_grouping.grouping.decision.SemanticGroupingDecision import (
     SemanticGroupingDecision,
 )
 

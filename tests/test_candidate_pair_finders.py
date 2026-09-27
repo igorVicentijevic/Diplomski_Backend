@@ -6,13 +6,13 @@ from unittest.mock import AsyncMock, MagicMock
 from sqlalchemy.dialects import postgresql
 
 from app.articles.models.ArticleModel import ArticleModel
-from app.semantic_grouping.grouping.CandidateArticlePairGenerator import (
+from app.semantic_grouping.grouping.pairing.CandidateArticlePairGenerator import (
     CandidateArticlePairGenerator,
 )
-from app.semantic_grouping.grouping.PgvectorCandidatePairFinder import (
+from app.semantic_grouping.grouping.pairing.PgvectorCandidatePairFinder import (
     PgvectorCandidatePairFinder,
 )
-from app.semantic_grouping.grouping.PythonCandidatePairFinder import (
+from app.semantic_grouping.grouping.pairing.PythonCandidatePairFinder import (
     PythonCandidatePairFinder,
 )
 

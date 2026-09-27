@@ -6,7 +6,7 @@ from app.articles.models.ArticleModel import ArticleModel
 from app.semantic_grouping.models.SemanticGroupingConfiguration import (
     SemanticGroupingConfiguration,
 )
-from app.semantic_grouping.models.SemanticGroupingDecision import (
+from app.semantic_grouping.grouping.decision.SemanticGroupingDecision import (
     SemanticGroupingDecision,
 )
 from app.semantic_grouping.models.SemanticGroupingDecisionModel import (
@@ -18,19 +18,19 @@ from app.semantic_grouping.models.SemanticGroupingRunModel import (
 from app.semantic_grouping.repositories.SemanticGroupingRepository import (
     SemanticGroupingRepository,
 )
-from app.semantic_grouping.grouping.ArticleEmbeddingProvider import (
+from app.semantic_grouping.grouping.embedding.ArticleEmbeddingProvider import (
     ArticleEmbeddingProvider,
 )
-from app.semantic_grouping.grouping.ICandidatePairFinder import (
+from app.semantic_grouping.grouping.pairing.ICandidatePairFinder import (
     ICandidatePairFinder,
 )
-from app.semantic_grouping.grouping.ProposedGroupAssigner import (
+from app.semantic_grouping.grouping.decision.ProposedGroupAssigner import (
     ProposedGroupAssigner,
 )
-from app.semantic_grouping.grouping.SemanticGroupingRunFactory import (
+from app.semantic_grouping.grouping.decision.SemanticGroupingRunFactory import (
     SemanticGroupingRunFactory,
 )
-from app.semantic_grouping.grouping.SemanticPairEvaluator import (
+from app.semantic_grouping.grouping.decision.SemanticPairEvaluator import (
     SemanticPairEvaluator,
 )
 
