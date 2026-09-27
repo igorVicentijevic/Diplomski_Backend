@@ -24,6 +24,9 @@ from app.pipeline.NewsArticleProcessingPipeline import (
 from app.pipeline.steps.ArticleDeduplicationStep import (
     ArticleDeduplicationStep,
 )
+from app.pipeline.steps.ExistingToneAnalysisStep import (
+    ExistingToneAnalysisStep,
+)
 from app.pipeline.steps.ToneAnalysisStep import ToneAnalysisStep
 from app.pipeline.steps.UrlNormalizationStep import UrlNormalizationStep
 from app.services.news_sources.ArticlePersistenceService import (
@@ -96,14 +99,19 @@ from app.tone_analysis.factories.ToneAnalysisStrategyFactory import (
 settings = get_settings()
 tone_analysis = ToneAnalysisStrategyFactory.create(settings)
 article_url_normalizer = ArticleUrlNormalizer()
-news_article_preprocessing_pipeline = NewsArticleProcessingPipeline(
+news_article_processing_pipeline = NewsArticleProcessingPipeline(
     steps=[
         UrlNormalizationStep(article_url_normalizer),
         ArticleDeduplicationStep(),
-    ]
-)
-news_article_analysis_pipeline = NewsArticleProcessingPipeline(
-    steps=[
+        ExistingToneAnalysisStep(
+            ExistingToneAnalysisLoader(
+                session_factory=AsyncSessionFactory,
+                input_hasher=ToneAnalysisInputHasher(),
+                provider=tone_analysis.provider,
+                model_name=tone_analysis.model_name,
+                prompt_version=tone_analysis.prompt_version,
+            )
+        ),
         ToneAnalysisStep(tone_analysis.strategy),
     ]
 )
@@ -179,15 +187,7 @@ news_source_polling_service = NewsSourcePollingService(
         NovaNewsSource(parser=rss_feed_parser),
         VremeNewsSource(parser=rss_feed_parser),
     ],
-    preprocessing_pipeline=news_article_preprocessing_pipeline,
-    analysis_pipeline=news_article_analysis_pipeline,
-    existing_tone_analysis_loader=ExistingToneAnalysisLoader(
-        session_factory=AsyncSessionFactory,
-        input_hasher=ToneAnalysisInputHasher(),
-        provider=tone_analysis.provider,
-        model_name=tone_analysis.model_name,
-        prompt_version=tone_analysis.prompt_version,
-    ),
+    pipeline=news_article_processing_pipeline,
     persistence_service=ArticlePersistenceService(
         session_factory=AsyncSessionFactory,
         article_mapper=ProcessedArticleMapper(),

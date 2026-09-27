@@ -301,9 +301,7 @@ def test_polling_service_runs_grouping_in_shadow_mode() -> None:
         shadow_grouping_service.run = AsyncMock()
         service = NewsSourcePollingService(
             sources=[],
-            preprocessing_pipeline=Mock(),
-            analysis_pipeline=Mock(),
-            existing_tone_analysis_loader=Mock(),
+            pipeline=Mock(),
             persistence_service=Mock(),
             shadow_grouping_service=shadow_grouping_service,
         )

@@ -12,9 +12,6 @@ from app.services.news_sources.ArticlePersistenceService import (
 from app.semantic_grouping.services.ShadowSemanticGroupingService import (
     ShadowSemanticGroupingService,
 )
-from app.tone_analysis.services.ExistingToneAnalysisLoader import (
-    ExistingToneAnalysisLoader,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -25,19 +22,13 @@ class NewsSourcePollingService:
     def __init__(
         self,
         sources: list[INewsSource],
-        preprocessing_pipeline: NewsArticleProcessingPipeline,
-        analysis_pipeline: NewsArticleProcessingPipeline,
-        existing_tone_analysis_loader: ExistingToneAnalysisLoader,
+        pipeline: NewsArticleProcessingPipeline,
         persistence_service: ArticlePersistenceService,
         shadow_grouping_service: ShadowSemanticGroupingService | None = None,
         refresh_interval_seconds: int = REFRESH_INTERVAL_SECONDS,
     ) -> None:
         self._sources = sources
-        self._preprocessing_pipeline = preprocessing_pipeline
-        self._analysis_pipeline = analysis_pipeline
-        self._existing_tone_analysis_loader = (
-            existing_tone_analysis_loader
-        )
+        self._pipeline = pipeline
         self._persistence_service = persistence_service
         self._shadow_grouping_service = shadow_grouping_service
         self._refresh_interval_seconds = refresh_interval_seconds
@@ -66,18 +57,8 @@ class NewsSourcePollingService:
             try:
                 #fetching from RSS feed
                 articles = await source.fetch_articles()
-                preprocessed_articles = (
-                    await self._preprocessing_pipeline.process(articles)
-                )
-                prepared_articles = (
-                    await self._existing_tone_analysis_loader.load_existing(
-                        preprocessed_articles
-                    )
-                )
                 processed_articles = (
-                    await self._analysis_pipeline.process_contexts(
-                        prepared_articles
-                    )
+                    await self._pipeline.process(articles)
                 )
 
                 #persist the converted domain models to the database

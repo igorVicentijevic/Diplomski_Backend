@@ -36,6 +36,9 @@ from app.pipeline.NewsArticleProcessingPipeline import (
 from app.pipeline.steps.ArticleDeduplicationStep import (
     ArticleDeduplicationStep,
 )
+from app.pipeline.steps.ExistingToneAnalysisStep import (
+    ExistingToneAnalysisStep,
+)
 from app.pipeline.steps.ToneAnalysisStep import ToneAnalysisStep
 from app.pipeline.steps.UrlNormalizationStep import UrlNormalizationStep
 from app.services.news_sources.ArticlePersistenceService import (
@@ -435,12 +438,6 @@ def test_polling_service_upserts_articles(tmp_path) -> None:
             ]
         )
         article_url_normalizer = ArticleUrlNormalizer()
-        preprocessing_pipeline = NewsArticleProcessingPipeline(
-            steps=[
-                UrlNormalizationStep(article_url_normalizer),
-                ArticleDeduplicationStep(),
-            ]
-        )
         tone_result = ToneAnalysisResult(
             negative_percentage=20,
             positive_percentage=30,
@@ -448,20 +445,25 @@ def test_polling_service_upserts_articles(tmp_path) -> None:
         )
         strategy = Mock()
         strategy.analyze = AsyncMock(return_value=tone_result)
-        analysis_pipeline = NewsArticleProcessingPipeline(
-            steps=[ToneAnalysisStep(strategy)]
+        pipeline = NewsArticleProcessingPipeline(
+            steps=[
+                UrlNormalizationStep(article_url_normalizer),
+                ArticleDeduplicationStep(),
+                ExistingToneAnalysisStep(
+                    ExistingToneAnalysisLoader(
+                        session_factory=session_factory,
+                        input_hasher=ToneAnalysisInputHasher(),
+                        provider="random",
+                        model_name="random",
+                        prompt_version="v1",
+                    )
+                ),
+                ToneAnalysisStep(strategy),
+            ]
         )
         service = NewsSourcePollingService(
             sources=[source],
-            preprocessing_pipeline=preprocessing_pipeline,
-            analysis_pipeline=analysis_pipeline,
-            existing_tone_analysis_loader=ExistingToneAnalysisLoader(
-                session_factory=session_factory,
-                input_hasher=ToneAnalysisInputHasher(),
-                provider="random",
-                model_name="random",
-                prompt_version="v1",
-            ),
+            pipeline=pipeline,
             persistence_service=ArticlePersistenceService(
                 session_factory=session_factory,
                 article_mapper=ProcessedArticleMapper(),

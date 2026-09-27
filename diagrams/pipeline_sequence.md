@@ -15,14 +15,11 @@ sequenceDiagram
         Poll->>Src: fetch_articles()
         Src-->>Poll: list[NewsArticle]
 
-        Poll->>Pipe: preprocessing (normalizacija URL-a + deduplikacija)
-        Pipe-->>Poll: contexts
-
-        Poll->>DB: ucitaj postojecu analizu tona
-        DB-->>Poll: cache rezultati
-
-        Poll->>Pipe: analysis pipeline
-        Pipe->>LLM: analyze(article) samo za cache miss
+        Poll->>Pipe: process(articles)
+        Note over Pipe: URL normalizacija -> deduplikacija -><br/>ucitavanje kesirane analize -> analiza tona
+        Pipe->>DB: postojeca analiza tona (batch)
+        DB-->>Pipe: kes rezultati
+        Pipe->>LLM: analyze(article) samo za kes promasaj
         LLM-->>Pipe: ToneAnalysisResult
         Pipe-->>Poll: contexts sa tonom
 
