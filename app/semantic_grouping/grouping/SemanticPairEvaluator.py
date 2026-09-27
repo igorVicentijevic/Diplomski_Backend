@@ -1,8 +1,7 @@
 import logging
-import math
 
-from app.semantic_grouping.models.CandidateArticlePair import (
-    CandidateArticlePair,
+from app.semantic_grouping.models.ArticlePairSimilarity import (
+    ArticlePairSimilarity,
 )
 from app.semantic_grouping.models.SemanticGroupingConfiguration import (
     SemanticGroupingConfiguration,
@@ -23,29 +22,24 @@ class SemanticPairEvaluator:
 
     def evaluate(
         self,
-        pairs: list[CandidateArticlePair],
-        embedding_by_article_id: dict[str, list[float]],
+        pair_similarities: list[ArticlePairSimilarity],
     ) -> list[SemanticGroupingDecision]:
-        
+
         return [
-            self._evaluate_pair(pair, embedding_by_article_id)
-            for pair in pairs
+            self._evaluate_pair(pair_similarity)
+            for pair_similarity in pair_similarities
         ]
 
     def _evaluate_pair(
         self,
-        pair: CandidateArticlePair,
-        embedding_by_article_id: dict[str, list[float]],
+        pair_similarity: ArticlePairSimilarity,
     ) -> SemanticGroupingDecision:
-        
-        similarity = self._cosine_similarity(
-            embedding_by_article_id[pair.left.id],
-            embedding_by_article_id[pair.right.id],
-        )
+
+        similarity = pair_similarity.similarity
         # Determine if the similarity is within the boundary range before making a decision
         decision = SemanticGroupingDecision(
-            left_article_id=pair.left.id,
-            right_article_id=pair.right.id,
+            left_article_id=pair_similarity.left_article_id,
+            right_article_id=pair_similarity.right_article_id,
             similarity=similarity,
 
             predicted_same_event=(
@@ -83,31 +77,3 @@ class SemanticPairEvaluator:
             decision.similarity,
             self._configuration.threshold,
         )
-
-    @staticmethod
-    def _cosine_similarity(
-        left: list[float],
-        right: list[float],
-    ) -> float:
-        if len(left) != len(right):
-            raise ValueError(
-                "Embedding vectors must have the same dimension."
-            )
-        if not left:
-            raise ValueError("Embedding vectors must not be empty.")
-
-        left_norm = math.sqrt(sum(value * value for value in left))
-        right_norm = math.sqrt(sum(value * value for value in right))
-        if left_norm == 0 or right_norm == 0:
-            raise ValueError(
-                "Embedding vectors must have a non-zero norm."
-            )
-
-        return sum(
-            left_value * right_value
-            for left_value, right_value in zip(
-                left,
-                right,
-                strict=True,
-            )
-        ) / (left_norm * right_norm)

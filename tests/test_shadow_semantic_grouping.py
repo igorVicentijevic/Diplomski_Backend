@@ -31,6 +31,9 @@ from app.semantic_grouping.grouping.ArticleTextBuilder import (
 from app.semantic_grouping.grouping.CandidateArticlePairGenerator import (
     CandidateArticlePairGenerator,
 )
+from app.semantic_grouping.grouping.PythonCandidatePairFinder import (
+    PythonCandidatePairFinder,
+)
 from app.semantic_grouping.grouping.ProposedGroupAssigner import (
     ProposedGroupAssigner,
 )
@@ -180,8 +183,10 @@ def test_shadow_grouping_persists_decisions_and_groups(
                 configuration=configuration,
                 embedding_engine=embedding_engine,
             ),
-            pair_generator=CandidateArticlePairGenerator(
-                configuration.candidate_window
+            pair_finder=PythonCandidatePairFinder(
+                pair_generator=CandidateArticlePairGenerator(
+                    configuration.candidate_window
+                )
             ),
             pair_evaluator=SemanticPairEvaluator(configuration),
             group_assigner=ProposedGroupAssigner(),

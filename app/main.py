@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from app.api.routes.article_groups import router as article_groups_router
 from app.api.routes.articles import router as articles_router
 from app.config.Settings import get_settings
-from app.database.session import AsyncSessionFactory
+from app.database.session import AsyncSessionFactory, engine
 from app.news_sources.B92NewsSource import B92NewsSource
 from app.news_sources.BetaNewsSource import BetaNewsSource
 from app.news_sources.DanasNewsSource import DanasNewsSource
@@ -58,6 +58,15 @@ from app.semantic_grouping.grouping.ArticleEmbeddingRequestFactory import (
 )
 from app.semantic_grouping.grouping.CandidateArticlePairGenerator import (
     CandidateArticlePairGenerator,
+)
+from app.semantic_grouping.grouping.ICandidatePairFinder import (
+    ICandidatePairFinder,
+)
+from app.semantic_grouping.grouping.PgvectorCandidatePairFinder import (
+    PgvectorCandidatePairFinder,
+)
+from app.semantic_grouping.grouping.PythonCandidatePairFinder import (
+    PythonCandidatePairFinder,
 )
 from app.semantic_grouping.grouping.ProposedGroupAssigner import (
     ProposedGroupAssigner,
@@ -111,6 +120,21 @@ semantic_grouping_configuration = SemanticGroupingConfiguration(
         settings.semantic_grouping_embedding_dimensions
     ),
 )
+candidate_pair_finder: ICandidatePairFinder = (
+    PgvectorCandidatePairFinder(
+        session_factory=AsyncSessionFactory,
+        model_name=semantic_grouping_configuration.model_name,
+        candidate_window=(
+            semantic_grouping_configuration.candidate_window
+        ),
+    )
+    if engine.dialect.name == "postgresql"
+    else PythonCandidatePairFinder(
+        pair_generator=CandidateArticlePairGenerator(
+            semantic_grouping_configuration.candidate_window
+        )
+    )
+)
 shadow_grouping_service = (
     ShadowSemanticGroupingService(
         session_factory=AsyncSessionFactory,
@@ -131,9 +155,7 @@ shadow_grouping_service = (
             ),
             model_name=semantic_grouping_configuration.model_name,
         ),
-        pair_generator=CandidateArticlePairGenerator(
-            semantic_grouping_configuration.candidate_window
-        ),
+        pair_finder=candidate_pair_finder,
         pair_evaluator=SemanticPairEvaluator(
             semantic_grouping_configuration
         ),

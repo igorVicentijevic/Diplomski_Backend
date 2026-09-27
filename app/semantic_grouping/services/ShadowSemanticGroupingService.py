@@ -21,8 +21,8 @@ from app.semantic_grouping.repositories.SemanticGroupingRepository import (
 from app.semantic_grouping.grouping.ArticleEmbeddingProvider import (
     ArticleEmbeddingProvider,
 )
-from app.semantic_grouping.grouping.CandidateArticlePairGenerator import (
-    CandidateArticlePairGenerator,
+from app.semantic_grouping.grouping.ICandidatePairFinder import (
+    ICandidatePairFinder,
 )
 from app.semantic_grouping.grouping.ProposedGroupAssigner import (
     ProposedGroupAssigner,
@@ -41,7 +41,7 @@ class ShadowSemanticGroupingService:
         session_factory: async_sessionmaker[AsyncSession],
         configuration: SemanticGroupingConfiguration,
         embedding_provider: ArticleEmbeddingProvider,
-        pair_generator: CandidateArticlePairGenerator,
+        pair_finder: ICandidatePairFinder,
         pair_evaluator: SemanticPairEvaluator,
         group_assigner: ProposedGroupAssigner,
         run_factory: SemanticGroupingRunFactory,
@@ -49,7 +49,7 @@ class ShadowSemanticGroupingService:
         self._session_factory = session_factory
         self._configuration = configuration
         self._embedding_provider = embedding_provider
-        self._pair_generator = pair_generator
+        self._pair_finder = pair_finder
         self._pair_evaluator = pair_evaluator
         self._group_assigner = group_assigner
         self._run_factory = run_factory
@@ -77,8 +77,10 @@ class ShadowSemanticGroupingService:
             return []
 
         embeddings = await self._embedding_provider.provide(articles)
-        pairs = self._pair_generator.generate(articles)
-        return self._pair_evaluator.evaluate(pairs, embeddings)
+        pair_similarities = await self._pair_finder.find(
+            articles, embeddings
+        )
+        return self._pair_evaluator.evaluate(pair_similarities)
 
     async def _load_articles(
         self,
