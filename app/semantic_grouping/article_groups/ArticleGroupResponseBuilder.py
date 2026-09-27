@@ -1,5 +1,8 @@
 from app.articles.models.ArticleModel import ArticleModel
 from app.articles.services.ArticleService import ArticleService
+from app.semantic_grouping.models.ProposedArticleGroup import (
+    ProposedArticleGroup,
+)
 from app.semantic_grouping.schemas.ArticleGroupResponse import (
     ArticleGroupResponse,
 )
@@ -8,17 +11,16 @@ from app.semantic_grouping.schemas.ArticleGroupResponse import (
 class ArticleGroupResponseBuilder:
     def build(
         self,
-        article_ids_by_group: dict[str, set[str]],
+        proposed_groups: list[ProposedArticleGroup],
         articles: list[ArticleModel],
     ) -> list[ArticleGroupResponse]:
         articles_by_id = {article.id: article for article in articles}
         groups = [
             self._create_group(
-                group_id,
-                article_ids,
+                proposed_group,
                 articles_by_id,
             )
-            for group_id, article_ids in article_ids_by_group.items()
+            for proposed_group in proposed_groups
         ]
         visible_groups = [
             group for group in groups if len(group.articles) >= 2
@@ -31,20 +33,19 @@ class ArticleGroupResponseBuilder:
 
     @staticmethod
     def _create_group(
-        group_id: str,
-        article_ids: set[str],
+        proposed_group: ProposedArticleGroup,
         articles_by_id: dict[str, ArticleModel],
     ) -> ArticleGroupResponse:
         articles = sorted(
             (
                 ArticleService.to_response(articles_by_id[article_id])
-                for article_id in article_ids
+                for article_id in proposed_group.article_ids
                 if article_id in articles_by_id
             ),
             key=lambda article: article.published_at,
             reverse=True,
         )
         return ArticleGroupResponse(
-            id=group_id,
+            id=proposed_group.group_id,
             articles=articles,
         )

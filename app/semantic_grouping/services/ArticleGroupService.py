@@ -27,15 +27,15 @@ class ArticleGroupService:
             return []
 
         decisions = await self._repository.list_grouped_decisions(run.id)
-        article_ids_by_group = self._group_collector.collect(decisions)
+        proposed_groups = self._group_collector.collect(decisions)
         articles = await self._repository.list_active_analyzed_articles_by_ids(
             {
                 article_id
-                for article_ids in article_ids_by_group.values()
-                for article_id in article_ids
+                for proposed_group in proposed_groups
+                for article_id in proposed_group.article_ids
             }
         )
         return self._response_builder.build(
-            article_ids_by_group,
+            proposed_groups,
             articles,
         )
