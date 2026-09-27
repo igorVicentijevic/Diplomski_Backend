@@ -6,7 +6,7 @@ from app.tone_analysis.models.LlmToneAnalysisResponse import (
 )
 
 
-class ToneAnalysisLlmClient(Protocol):
+class IToneAnalysisLlmClient(Protocol):
     async def analyze_tone(
         self,
         *,

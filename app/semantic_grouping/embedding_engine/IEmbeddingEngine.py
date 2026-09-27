@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
 
-class EmbeddingEngine(ABC):
+class IEmbeddingEngine(ABC):
     @abstractmethod
     def encode(
         self,

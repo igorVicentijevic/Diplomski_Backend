@@ -3,8 +3,8 @@ import math
 from .ArticleTextBuilder import (
     ArticleTextBuilder,
 )
-from .embedding_engine.EmbeddingEngine import (
-    EmbeddingEngine,
+from .embedding_engine.IEmbeddingEngine import (
+    IEmbeddingEngine,
 )
 from .models.ArticlePair import ArticlePair
 from .models.EvaluationMetrics import (
@@ -18,7 +18,7 @@ from .models.SimilarityResult import (
 class EmbeddingEvaluator:
     def __init__(
         self,
-        embedding_engine: EmbeddingEngine,
+        embedding_engine: IEmbeddingEngine,
         text_builder: ArticleTextBuilder,
     ) -> None:
         self._embedding_engine = embedding_engine

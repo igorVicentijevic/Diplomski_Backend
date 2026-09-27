@@ -7,7 +7,7 @@ from typing import Any
 from ..ArticlePairJsonCodec import ArticlePairJsonCodec
 from ..ArticleTextBuilder import ArticleTextBuilder
 from ..EmbeddingEvaluator import EmbeddingEvaluator
-from ..embedding_engine.EmbeddingEngine import EmbeddingEngine
+from ..embedding_engine.IEmbeddingEngine import IEmbeddingEngine
 from ..models.ArticlePair import ArticlePair
 from ..models.CrossValidationResult import CrossValidationResult
 from ..models.EvaluationMetrics import EvaluationMetrics
@@ -62,7 +62,7 @@ class ModelBenchmarkService:
     def benchmark(
         self,
         model_names: list[str],
-        engine_factory: Callable[[str], EmbeddingEngine],
+        engine_factory: Callable[[str], IEmbeddingEngine],
     ) -> list[ModelEvaluationReport]:
         if len(model_names) < 2:
             raise ValueError(
@@ -82,7 +82,7 @@ class ModelBenchmarkService:
     def _benchmark_model(
         self,
         model_name: str,
-        embedding_engine: EmbeddingEngine,
+        embedding_engine: IEmbeddingEngine,
     ) -> ModelEvaluationReport:
         evaluator = EmbeddingEvaluator(
             embedding_engine=embedding_engine,

@@ -2,7 +2,7 @@ import asyncio
 import logging
 from contextlib import suppress
 
-from app.news_sources.NewsSource import NewsSource
+from app.news_sources.INewsSource import INewsSource
 from app.pipeline.NewsArticleProcessingPipeline import (
     NewsArticleProcessingPipeline,
 )
@@ -24,7 +24,7 @@ class NewsSourcePollingService:
 
     def __init__(
         self,
-        sources: list[NewsSource],
+        sources: list[INewsSource],
         preprocessing_pipeline: NewsArticleProcessingPipeline,
         analysis_pipeline: NewsArticleProcessingPipeline,
         existing_tone_analysis_loader: ExistingToneAnalysisLoader,

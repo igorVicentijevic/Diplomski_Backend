@@ -6,6 +6,8 @@ from app.articles.schemas.ArticleResponse import ArticleResponse
 
 
 class ArticleService:
+    """Facade for the API HTTP layer over the articles package."""
+
     def __init__(self, article_repository: ArticleRepository) -> None:
         self._article_repository = article_repository
 

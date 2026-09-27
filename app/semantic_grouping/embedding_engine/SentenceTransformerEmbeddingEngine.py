@@ -7,12 +7,12 @@ if find_spec("sentence_transformers") is not None:
 else:
     SentenceTransformer = None
 
-from app.semantic_grouping.embedding_engine.EmbeddingEngine import (
-    EmbeddingEngine,
+from app.semantic_grouping.embedding_engine.IEmbeddingEngine import (
+    IEmbeddingEngine,
 )
 
 
-class SentenceTransformerEmbeddingEngine(EmbeddingEngine):
+class SentenceTransformerEmbeddingEngine(IEmbeddingEngine):
     def __init__(self, model_name: str) -> None:
         self._model_name = model_name
         self._model: Any | None = None

@@ -18,8 +18,8 @@ from app.semantic_grouping.models.SemanticGroupingRunModel import (
 from app.semantic_grouping.repositories.SemanticGroupingRepository import (
     SemanticGroupingRepository,
 )
-from app.semantic_grouping.grouping.embedding.ArticleEmbeddingProvider import (
-    ArticleEmbeddingProvider,
+from app.semantic_grouping.grouping.embedding.IArticleEmbeddingProvider import (
+    IArticleEmbeddingProvider,
 )
 from app.semantic_grouping.grouping.pairing.ICandidatePairFinder import (
     ICandidatePairFinder,
@@ -40,7 +40,7 @@ class ShadowSemanticGroupingService:
         self,
         session_factory: async_sessionmaker[AsyncSession],
         configuration: SemanticGroupingConfiguration,
-        embedding_provider: ArticleEmbeddingProvider,
+        embedding_provider: IArticleEmbeddingProvider,
         pair_finder: ICandidatePairFinder,
         pair_evaluator: SemanticPairEvaluator,
         group_assigner: ProposedGroupAssigner,

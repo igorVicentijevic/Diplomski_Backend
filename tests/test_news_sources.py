@@ -22,7 +22,7 @@ from app.news_sources.BetaNewsSource import BetaNewsSource
 from app.news_sources.DanasNewsSource import DanasNewsSource
 from app.news_sources.JuzneVestiNewsSource import JuzneVestiNewsSource
 from app.news_sources.N1NewsSource import N1NewsSource
-from app.news_sources.NewsSource import NewsSource
+from app.news_sources.INewsSource import INewsSource
 from app.news_sources.NovaNewsSource import NovaNewsSource
 from app.news_sources.PolitikaNewsSource import PolitikaNewsSource
 from app.news_sources.RssFeedParser import RssFeedParser
@@ -424,7 +424,7 @@ def test_polling_service_upserts_articles(tmp_path) -> None:
         async with engine.begin() as connection:
             await connection.run_sync(Base.metadata.create_all)
 
-        source = Mock(spec=NewsSource)
+        source = Mock(spec=INewsSource)
         source.id = "test"
         source.display_name = "Test source"
         source.fetch_articles = AsyncMock(

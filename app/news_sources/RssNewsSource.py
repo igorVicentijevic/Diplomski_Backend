@@ -1,11 +1,11 @@
 import httpx
 
-from app.news_sources.NewsSource import NewsSource
+from app.news_sources.INewsSource import INewsSource
 from app.news_sources.RssFeedParser import RssFeedParser
 from app.news_sources.models.NewsArticle import NewsArticle
 
 
-class RssNewsSource(NewsSource):
+class RssNewsSource(INewsSource):
     _SOURCE_ID = ""
     _DISPLAY_NAME = ""
     _FEED_URL = ""

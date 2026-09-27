@@ -5,7 +5,7 @@ from app.pipeline.ArticleProcessingContext import (
 )
 
 
-class NewsArticleProcessingStep(Protocol):
+class INewsArticleProcessingStep(Protocol):
     async def process(
         self,
         contexts: list[ArticleProcessingContext],

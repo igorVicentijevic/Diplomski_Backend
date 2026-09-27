@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from app.news_sources.models.NewsArticle import NewsArticle
 
 
-class NewsSource(ABC):
+class INewsSource(ABC):
     @property
     @abstractmethod
     def id(self) -> str:

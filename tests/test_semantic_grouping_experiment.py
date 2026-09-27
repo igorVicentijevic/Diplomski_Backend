@@ -22,8 +22,8 @@ from experiments.semantic_grouping.EmbeddingEvaluator import (
 from experiments.semantic_grouping.LabelledPairLoader import (
     LabelledPairLoader,
 )
-from experiments.semantic_grouping.embedding_engine.EmbeddingEngine import (
-    EmbeddingEngine,
+from experiments.semantic_grouping.embedding_engine.IEmbeddingEngine import (
+    IEmbeddingEngine,
 )
 from experiments.semantic_grouping.label_dataset import (
     load_entries,
@@ -52,7 +52,7 @@ from experiments.semantic_grouping.services.ModelBenchmarkService import (
 PUBLISHED_AT = datetime(2026, 9, 25, 12, 0, tzinfo=UTC)
 
 
-class FakeEmbeddingEngine(EmbeddingEngine):
+class FakeEmbeddingEngine(IEmbeddingEngine):
     def encode(self, texts: list[str]) -> list[list[float]]:
         embeddings = {
             "Title: Left\nSummary: Same": [1.0, 0.0],

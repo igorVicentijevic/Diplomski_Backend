@@ -3,18 +3,18 @@ from dataclasses import replace
 from app.pipeline.ArticleProcessingContext import (
     ArticleProcessingContext,
 )
-from app.pipeline.ArticleTransformationStep import (
-    ArticleTransformationStep,
+from app.pipeline.IArticleTransformationStep import (
+    IArticleTransformationStep,
 )
-from app.tone_analysis.strategies.ToneAnalysisStrategy import (
-    ToneAnalysisStrategy,
+from app.tone_analysis.strategies.IToneAnalysisStrategy import (
+    IToneAnalysisStrategy,
 )
 
 
-class ToneAnalysisStep(ArticleTransformationStep):
+class ToneAnalysisStep(IArticleTransformationStep):
     def __init__(
         self,
-        strategy: ToneAnalysisStrategy,
+        strategy: IToneAnalysisStrategy,
     ) -> None:
         self._strategy = strategy
 

@@ -6,7 +6,7 @@ from app.tone_analysis.models.ToneAnalysisResult import (
 )
 
 
-class ToneAnalysisStrategy(ABC):
+class IToneAnalysisStrategy(ABC):
     @abstractmethod
     async def analyze(
         self,

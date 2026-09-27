@@ -1,6 +1,6 @@
 from app.news_sources.models.NewsArticle import NewsArticle
-from app.tone_analysis.clients.ToneAnalysisLlmClient import (
-    ToneAnalysisLlmClient,
+from app.tone_analysis.clients.IToneAnalysisLlmClient import (
+    IToneAnalysisLlmClient,
 )
 from app.tone_analysis.models.LlmToneAnalysisResponse import (
     LlmToneAnalysisResponse,
@@ -8,15 +8,15 @@ from app.tone_analysis.models.LlmToneAnalysisResponse import (
 from app.tone_analysis.models.ToneAnalysisResult import (
     ToneAnalysisResult,
 )
-from app.tone_analysis.strategies.ToneAnalysisStrategy import (
-    ToneAnalysisStrategy,
+from app.tone_analysis.strategies.IToneAnalysisStrategy import (
+    IToneAnalysisStrategy,
 )
 
 
-class LlmToneAnalysisStrategy(ToneAnalysisStrategy):
+class LlmToneAnalysisStrategy(IToneAnalysisStrategy):
     def __init__(
         self,
-        client: ToneAnalysisLlmClient,
+        client: IToneAnalysisLlmClient,
     ) -> None:
         self._client = client
 

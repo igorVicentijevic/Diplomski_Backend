@@ -2,15 +2,15 @@ from app.news_sources.models.NewsArticle import NewsArticle
 from app.pipeline.ArticleProcessingContext import (
     ArticleProcessingContext,
 )
-from app.pipeline.NewsArticleProcessingStep import (
-    NewsArticleProcessingStep,
+from app.pipeline.INewsArticleProcessingStep import (
+    INewsArticleProcessingStep,
 )
 
 
 class NewsArticleProcessingPipeline:
     def __init__(
         self,
-        steps: list[NewsArticleProcessingStep],
+        steps: list[INewsArticleProcessingStep],
     ) -> None:
         self._steps = steps
 

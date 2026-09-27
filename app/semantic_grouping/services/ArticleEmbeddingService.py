@@ -6,8 +6,8 @@ from app.articles.models.ArticleModel import ArticleModel
 from app.semantic_grouping.grouping.embedding.ArticleEmbeddingGenerator import (
     ArticleEmbeddingGenerator,
 )
-from app.semantic_grouping.grouping.embedding.ArticleEmbeddingProvider import (
-    ArticleEmbeddingProvider,
+from app.semantic_grouping.grouping.embedding.IArticleEmbeddingProvider import (
+    IArticleEmbeddingProvider,
 )
 from app.semantic_grouping.grouping.embedding.ArticleEmbeddingRequestFactory import (
     ArticleEmbeddingRequestFactory,
@@ -23,7 +23,7 @@ from app.vectordb.repositories.ArticleEmbeddingRepository import (
 )
 
 
-class ArticleEmbeddingService(ArticleEmbeddingProvider):
+class ArticleEmbeddingService(IArticleEmbeddingProvider):
     """Reuses stored embeddings and generates only the missing ones."""
 
     def __init__(

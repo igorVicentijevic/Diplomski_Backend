@@ -13,8 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.articles.models.ArticleModel import ArticleModel
 from app.config.Settings import Settings
 from app.database.Base import Base
-from app.semantic_grouping.embedding_engine.EmbeddingEngine import (
-    EmbeddingEngine,
+from app.semantic_grouping.embedding_engine.IEmbeddingEngine import (
+    IEmbeddingEngine,
 )
 from app.semantic_grouping.grouping.embedding.ArticleEmbeddingGenerator import (
     ArticleEmbeddingGenerator,
@@ -78,7 +78,7 @@ from experiments.semantic_grouping.compare_models import (
 )
 
 
-class FakeEmbeddingEngine(EmbeddingEngine):
+class FakeEmbeddingEngine(IEmbeddingEngine):
     def __init__(self) -> None:
         self.encoded_texts: list[list[str]] = []
 
@@ -440,7 +440,7 @@ def test_embedding_generator_rejects_unexpected_dimensions() -> None:
 def _create_embedding_service(
     session_factory: async_sessionmaker[AsyncSession],
     configuration: SemanticGroupingConfiguration,
-    embedding_engine: EmbeddingEngine,
+    embedding_engine: IEmbeddingEngine,
 ) -> ArticleEmbeddingService:
     return ArticleEmbeddingService(
         session_factory=session_factory,

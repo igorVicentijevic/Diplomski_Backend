@@ -1,8 +1,8 @@
 import asyncio
 from collections.abc import Sequence
 
-from app.semantic_grouping.embedding_engine.EmbeddingEngine import (
-    EmbeddingEngine,
+from app.semantic_grouping.embedding_engine.IEmbeddingEngine import (
+    IEmbeddingEngine,
 )
 from app.semantic_grouping.grouping.embedding.ArticleEmbeddingRequest import (
     ArticleEmbeddingRequest,
@@ -17,7 +17,7 @@ class ArticleEmbeddingGenerator:
 
     def __init__(
         self,
-        embedding_engine: EmbeddingEngine,
+        embedding_engine: IEmbeddingEngine,
         expected_dimensions: int,
     ) -> None:
         if expected_dimensions <= 0:
