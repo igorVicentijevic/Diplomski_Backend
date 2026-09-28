@@ -56,11 +56,15 @@ class ShadowSemanticGroupingService:
 
     async def run(self) -> SemanticGroupingRunModel:
         created_at = datetime.now(UTC)
+
         articles = await self._load_articles(
             created_at - self._configuration.candidate_window
         )
+
         decisions = await self._create_decisions(articles)
+
         self._group_assigner.assign(decisions)
+        
         run, decision_models = self._run_factory.create(
             articles,
             decisions,

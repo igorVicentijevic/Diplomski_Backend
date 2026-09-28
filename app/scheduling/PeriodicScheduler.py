@@ -8,13 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class PeriodicScheduler:
-    """Runs an async task on a fixed interval.
 
-    The next tick is scheduled on a monotonic grid instead of sleeping
-    after the task finishes, so a slow run cannot push the following
-    runs further and further away. Ticks missed by an overrunning run
-    are skipped rather than replayed back to back.
-    """
 
     def __init__(
         self,
@@ -23,6 +17,7 @@ class PeriodicScheduler:
         task: Callable[[], Awaitable[object]],
         run_immediately: bool = True,
     ) -> None:
+        
         if interval_seconds <= 0:
             raise ValueError(
                 "Scheduler interval must be greater than zero."
@@ -40,10 +35,12 @@ class PeriodicScheduler:
 
     def start(self) -> None:
         if self._loop_task is None:
+
             self._loop_task = asyncio.create_task(
                 self._run_forever(),
                 name=f"scheduler:{self._name}",
             )
+
 
     async def stop(self) -> None:
         if self._loop_task is None:
@@ -57,8 +54,11 @@ class PeriodicScheduler:
         self._loop_task = None
 
     async def _run_forever(self) -> None:
+
         loop = asyncio.get_running_loop()
+
         next_run = loop.time()
+
         if not self._run_immediately:
             next_run += self._interval_seconds
 
@@ -84,7 +84,9 @@ class PeriodicScheduler:
         previous_run: float,
         now: float,
     ) -> float:
+        
         next_run = previous_run + self._interval_seconds
+        
         if next_run > now:
             return next_run
 

@@ -205,7 +205,7 @@ schedulers = [
         task=news_source_polling_service.refresh_once,
     )
 ]
-#grouping is slower and not needed for fresh articles, so it runs apart
+
 if shadow_grouping_service is not None:
     schedulers.append(
         PeriodicScheduler(

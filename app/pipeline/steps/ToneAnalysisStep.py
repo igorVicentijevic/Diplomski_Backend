@@ -66,6 +66,7 @@ class ToneAnalysisStep(IArticleTransformationStep):
             return contexts
 
         availability = await self._check_availability()
+
         if not availability.is_available:
             logger.warning(
                 "Skipping tone analysis of %s article(s): %s",
@@ -75,6 +76,7 @@ class ToneAnalysisStep(IArticleTransformationStep):
             return contexts
 
         semaphore = asyncio.Semaphore(self._max_concurrency)
+        
         became_unavailable = asyncio.Event()
 
         return list(

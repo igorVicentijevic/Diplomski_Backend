@@ -69,6 +69,7 @@ class NewsSourcePollingService:
         try:
             async with asyncio.timeout(self._fetch_timeout_seconds):
                 articles = await source.fetch_articles()
+                
         except TimeoutError:
             logger.warning(
                 "Timed out after %s seconds while fetching news "

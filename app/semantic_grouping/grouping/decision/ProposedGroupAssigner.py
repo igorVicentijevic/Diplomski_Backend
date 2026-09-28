@@ -18,6 +18,7 @@ class ProposedGroupAssigner:
         Returns the proposed groups the decisions were merged into.
         """
         parent_map = self._build_parent_map(decisions)
+
         groups = self._create_groups(parent_map)
         group_by_article_id = {
             article_id: group.group_id
@@ -104,7 +105,9 @@ class ProposedGroupAssigner:
         article_id: str,
     ) -> str:
         parent_map.setdefault(article_id, article_id)
+
         while parent_map[article_id] != article_id:
             parent_map[article_id] = parent_map[parent_map[article_id]]
             article_id = parent_map[article_id]
+            
         return article_id
