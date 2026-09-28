@@ -22,7 +22,14 @@ class Settings(BaseSettings):
     tone_analysis_prompt_version: str = "v2"
     tone_analysis_timeout_seconds: float = Field(default=30, gt=0)
     tone_analysis_max_retries: int = Field(default=2, ge=0)
+    tone_analysis_max_concurrency: int = Field(default=8, gt=0)
+    news_refresh_interval_seconds: float = Field(default=15 * 60, gt=0)
+    news_source_fetch_timeout_seconds: float = Field(default=60, gt=0)
     semantic_grouping_shadow_enabled: bool = True
+    semantic_grouping_interval_seconds: float = Field(
+        default=60 * 60,
+        gt=0,
+    )
     semantic_grouping_model: str = (
         "sentence-transformers/distiluse-base-multilingual-cased-v2"
     )

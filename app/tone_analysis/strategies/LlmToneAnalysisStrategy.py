@@ -5,6 +5,9 @@ from app.tone_analysis.clients.IToneAnalysisLlmClient import (
 from app.tone_analysis.models.LlmToneAnalysisResponse import (
     LlmToneAnalysisResponse,
 )
+from app.tone_analysis.models.ToneAnalysisAvailability import (
+    ToneAnalysisAvailability,
+)
 from app.tone_analysis.models.ToneAnalysisResult import (
     ToneAnalysisResult,
 )
@@ -19,6 +22,9 @@ class LlmToneAnalysisStrategy(IToneAnalysisStrategy):
         client: IToneAnalysisLlmClient,
     ) -> None:
         self._client = client
+
+    async def check_availability(self) -> ToneAnalysisAvailability:
+        return await self._client.check_availability()
 
     async def analyze(
         self,

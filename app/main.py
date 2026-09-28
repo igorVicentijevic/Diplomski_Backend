@@ -41,6 +41,7 @@ from app.services.news_sources.ProcessedArticleMapper import (
 from app.services.news_sources.NewsSourcePollingService import (
     NewsSourcePollingService,
 )
+from app.scheduling.PeriodicScheduler import PeriodicScheduler
 from app.semantic_grouping.embedding_engine.SentenceTransformerEmbeddingEngine import (
     SentenceTransformerEmbeddingEngine,
 )
@@ -112,7 +113,10 @@ news_article_processing_pipeline = NewsArticleProcessingPipeline(
                 prompt_version=tone_analysis.prompt_version,
             )
         ),
-        ToneAnalysisStep(tone_analysis.strategy),
+        ToneAnalysisStep(
+            tone_analysis.strategy,
+            max_concurrency=settings.tone_analysis_max_concurrency,
+        ),
     ]
 )
 rss_feed_parser = RssFeedParser()
@@ -192,17 +196,37 @@ news_source_polling_service = NewsSourcePollingService(
         session_factory=AsyncSessionFactory,
         article_mapper=ProcessedArticleMapper(),
     ),
-    shadow_grouping_service=shadow_grouping_service,
+    fetch_timeout_seconds=settings.news_source_fetch_timeout_seconds,
 )
+schedulers = [
+    PeriodicScheduler(
+        name="news-refresh",
+        interval_seconds=settings.news_refresh_interval_seconds,
+        task=news_source_polling_service.refresh_once,
+    )
+]
+#grouping is slower and not needed for fresh articles, so it runs apart
+if shadow_grouping_service is not None:
+    schedulers.append(
+        PeriodicScheduler(
+            name="semantic-grouping-shadow",
+            interval_seconds=(
+                settings.semantic_grouping_interval_seconds
+            ),
+            task=shadow_grouping_service.run,
+        )
+    )
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    news_source_polling_service.start()
+    for scheduler in schedulers:
+        scheduler.start()
     try:
         yield
     finally:
-        await news_source_polling_service.stop()
+        for scheduler in schedulers:
+            await scheduler.stop()
 
 app = FastAPI(
     title="News Aggregator API",

@@ -1,6 +1,9 @@
 import random
 
 from app.news_sources.models.NewsArticle import NewsArticle
+from app.tone_analysis.models.ToneAnalysisAvailability import (
+    ToneAnalysisAvailability,
+)
 from app.tone_analysis.models.ToneAnalysisResult import (
     ToneAnalysisResult,
 )
@@ -15,6 +18,9 @@ class RandomToneAnalysisStrategy(IToneAnalysisStrategy):
         random_generator: random.Random | None = None,
     ) -> None:
         self._random_generator = random_generator or random.Random()
+
+    async def check_availability(self) -> ToneAnalysisAvailability:
+        return ToneAnalysisAvailability.available()
 
     async def analyze(
         self,

@@ -75,6 +75,29 @@ class ProcessedArticleMapper:
             tone=tone_model,
         )
 
+    def __generate_analysis(
+        self,
+        article_id: str,
+        context: ArticleProcessingContext,
+    ) -> ArticleAnalysisModel | None:
+        #an article without a tone is still stored so that it keeps its
+        #place in the feed; the API hides it until the analysis lands
+        if context.tone_analysis is None:
+            return None
+
+        if context.tone_analysis_metadata is None:
+            raise ValueError(
+                "Article tone metadata must exist before mapping."
+            )
+
+        tone_model = self.__generate_ToneModel(article_id, context)
+
+        return self.__generate_AnalysisModel(
+            article_id,
+            tone_model,
+            context,
+        )
+
     def __generate_agent_id(self, article, normalized_url: str) -> str:
         return f"{article.source_id}-{self.__generate_article_hash(article.source_id, normalized_url)}"
 
@@ -87,29 +110,17 @@ class ProcessedArticleMapper:
                 "Article URL must be normalized before mapping."
             )
 
-        if context.tone_analysis is None:
-            raise ValueError(
-                "Article tone must be analyzed before mapping."
-            )
-
-        if context.tone_analysis_metadata is None:
-            raise ValueError(
-                "Article tone metadata must exist before mapping."
-            )
-
         article = context.article
+        article_id = self.__generate_agent_id(
+            article,
+            normalized_url=context.normalized_url,
+        )
 
-       
-
-        article_id = self.__generate_agent_id(article, normalized_url=context.normalized_url)
-
-        article_model = self.__generate_ArticleModel(article, article_id, context)
-
-        tone_model = self.__generate_ToneModel(article_id, context)
-        
-        analysis_model = self.__generate_AnalysisModel(article_id, tone_model, context)
-        
         return ProcessedArticleModels(
-            article=article_model,
-            analysis=analysis_model,
+            article=self.__generate_ArticleModel(
+                article,
+                article_id,
+                context,
+            ),
+            analysis=self.__generate_analysis(article_id, context),
         )

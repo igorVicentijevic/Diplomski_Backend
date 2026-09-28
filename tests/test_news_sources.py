@@ -1,8 +1,11 @@
 import asyncio
 import random
+from dataclasses import replace
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, Mock
 
+import httpx
+from groq import RateLimitError
 from sqlalchemy import func, select
 from sqlalchemy.engine import URL
 from sqlalchemy.ext.asyncio import (
@@ -13,6 +16,7 @@ from sqlalchemy.ext.asyncio import (
 
 from app.articles.models.ArticleAnalysisModel import ArticleAnalysisModel
 from app.articles.models.ArticleModel import ArticleModel
+from app.articles.repositories.ArticleRepository import ArticleRepository
 from app.articles.models.ArticleToneAnalysisModel import (
     ArticleToneAnalysisModel,
 )
@@ -77,6 +81,47 @@ from app.tone_analysis.services.ExistingToneAnalysisLoader import (
 from app.tone_analysis.services.ToneAnalysisInputHasher import (
     ToneAnalysisInputHasher,
 )
+from app.tone_analysis.exceptions.ToneAnalysisUnavailableError import (
+    ToneAnalysisUnavailableError,
+)
+from app.tone_analysis.models.ToneAnalysisAvailability import (
+    ToneAnalysisAvailability,
+)
+
+
+def create_tone_strategy(
+    analyze: AsyncMock,
+    availability: ToneAnalysisAvailability | None = None,
+) -> Mock:
+    strategy = Mock()
+    strategy.analyze = analyze
+    strategy.check_availability = AsyncMock(
+        return_value=(
+            availability or ToneAnalysisAvailability.available()
+        )
+    )
+    return strategy
+
+
+def create_groq_client(groq_client: Mock) -> GroqToneAnalysisLlmClient:
+    return GroqToneAnalysisLlmClient(
+        api_key="test-key",
+        model="openai/gpt-oss-20b",
+        timeout_seconds=30,
+        max_retries=2,
+        groq_client=groq_client,
+    )
+
+
+def create_rate_limit_error() -> RateLimitError:
+    return RateLimitError(
+        "rate limit reached",
+        response=httpx.Response(
+            status_code=429,
+            request=httpx.Request("POST", "https://api.groq.com"),
+        ),
+        body=None,
+    )
 
 
 def create_news_article(
@@ -235,6 +280,63 @@ def test_groq_tone_analysis_client_uses_structured_output() -> None:
         json_schema = request["response_format"]["json_schema"]
         assert json_schema["strict"] is True
         assert json_schema["schema"]["additionalProperties"] is False
+
+    asyncio.run(run_test())
+
+
+def test_groq_client_reports_unavailability_on_rate_limit() -> None:
+    async def run_test() -> None:
+        groq_client = Mock()
+        groq_client.chat.completions.create = AsyncMock(
+            side_effect=create_rate_limit_error()
+        )
+        client = create_groq_client(groq_client)
+
+        availability = await client.check_availability()
+
+        assert availability.is_available is False
+        assert "429" in (availability.reason or "")
+        request = groq_client.chat.completions.create.await_args.kwargs
+        assert request["max_completion_tokens"] == 1
+
+    asyncio.run(run_test())
+
+
+def test_groq_client_reports_availability_on_a_successful_probe() -> None:
+    async def run_test() -> None:
+        groq_client = Mock()
+        groq_client.chat.completions.create = AsyncMock(
+            return_value=Mock()
+        )
+        client = create_groq_client(groq_client)
+
+        availability = await client.check_availability()
+
+        assert availability.is_available is True
+        assert availability.reason is None
+
+    asyncio.run(run_test())
+
+
+def test_groq_client_raises_unavailable_error_on_rate_limit() -> None:
+    async def run_test() -> None:
+        groq_client = Mock()
+        groq_client.chat.completions.create = AsyncMock(
+            side_effect=create_rate_limit_error()
+        )
+        client = create_groq_client(groq_client)
+
+        try:
+            await client.analyze_tone(
+                title="Naslov",
+                summary="Sazetak vesti",
+            )
+        except ToneAnalysisUnavailableError:
+            return
+
+        raise AssertionError(
+            "Expected a ToneAnalysisUnavailableError."
+        )
 
     asyncio.run(run_test())
 
@@ -443,8 +545,9 @@ def test_polling_service_upserts_articles(tmp_path) -> None:
             positive_percentage=30,
             neutral_percentage=50,
         )
-        strategy = Mock()
-        strategy.analyze = AsyncMock(return_value=tone_result)
+        strategy = create_tone_strategy(
+            AsyncMock(return_value=tone_result)
+        )
         pipeline = NewsArticleProcessingPipeline(
             steps=[
                 UrlNormalizationStep(article_url_normalizer),
@@ -535,6 +638,477 @@ def test_polling_service_upserts_articles(tmp_path) -> None:
             + tone_analysis.neutral_percentage
             - 100
         ) < 0.01
+
+        await engine.dispose()
+
+    asyncio.run(run_test())
+
+
+def create_polling_service(
+    sources: list[INewsSource],
+    fetch_timeout_seconds: float = 60.0,
+) -> NewsSourcePollingService:
+    pipeline = Mock()
+    pipeline.process = AsyncMock(side_effect=lambda articles: articles)
+    persistence_service = Mock()
+    persistence_service.persist = AsyncMock(
+        side_effect=lambda contexts, source_id: len(contexts)
+    )
+
+    return NewsSourcePollingService(
+        sources=sources,
+        pipeline=pipeline,
+        persistence_service=persistence_service,
+        fetch_timeout_seconds=fetch_timeout_seconds,
+    )
+
+
+def create_source(source_id: str, fetch_articles) -> INewsSource:
+    source = Mock(spec=INewsSource)
+    source.id = source_id
+    source.display_name = f"Source {source_id}"
+    source.fetch_articles = fetch_articles
+    return source
+
+
+def test_polling_service_fetches_sources_concurrently() -> None:
+    async def run_test() -> None:
+        async def slow_fetch() -> list[NewsArticle]:
+            await asyncio.sleep(0.1)
+            return [
+                create_news_article(
+                    f"https://example.com/{random.random()}"
+                )
+            ]
+
+        sources = [
+            create_source(f"source-{index}", slow_fetch)
+            for index in range(5)
+        ]
+        service = create_polling_service(sources)
+
+        loop = asyncio.get_running_loop()
+        started = loop.time()
+        assert await service.refresh_once() == 5
+        elapsed = loop.time() - started
+
+        #sequential fetching would need at least 0.5 seconds
+        assert elapsed < 0.4
+
+    asyncio.run(run_test())
+
+
+def test_polling_service_skips_a_source_that_times_out() -> None:
+    async def run_test() -> None:
+        async def hanging_fetch() -> list[NewsArticle]:
+            await asyncio.sleep(10)
+            return []
+
+        async def working_fetch() -> list[NewsArticle]:
+            return [
+                create_news_article("https://example.com/working")
+            ]
+
+        service = create_polling_service(
+            [
+                create_source("hanging", hanging_fetch),
+                create_source("working", working_fetch),
+            ],
+            fetch_timeout_seconds=0.05,
+        )
+
+        loop = asyncio.get_running_loop()
+        started = loop.time()
+        assert await service.refresh_once() == 1
+        assert loop.time() - started < 1
+
+    asyncio.run(run_test())
+
+
+def test_polling_service_isolates_a_failing_source() -> None:
+    async def run_test() -> None:
+        async def failing_fetch() -> list[NewsArticle]:
+            raise RuntimeError("feed is down")
+
+        async def working_fetch() -> list[NewsArticle]:
+            return [
+                create_news_article("https://example.com/working")
+            ]
+
+        service = create_polling_service(
+            [
+                create_source("failing", failing_fetch),
+                create_source("working", working_fetch),
+            ]
+        )
+
+        assert await service.refresh_once() == 1
+
+    asyncio.run(run_test())
+
+
+def test_tone_analysis_step_limits_concurrency() -> None:
+    async def run_test() -> None:
+        active = 0
+        peak = 0
+
+        async def analyze(article: NewsArticle) -> ToneAnalysisResult:
+            nonlocal active, peak
+            active += 1
+            peak = max(peak, active)
+            await asyncio.sleep(0.01)
+            active -= 1
+            return ToneAnalysisResult(
+                negative_percentage=20,
+                positive_percentage=30,
+                neutral_percentage=50,
+            )
+
+        strategy = create_tone_strategy(AsyncMock(side_effect=analyze))
+        step = ToneAnalysisStep(strategy, max_concurrency=3)
+        contexts = [
+            ArticleProcessingContext(
+                article=create_news_article(
+                    f"https://example.com/{index}"
+                ),
+                normalized_url=f"https://example.com/{index}",
+            )
+            for index in range(10)
+        ]
+
+        results = await step.process(contexts)
+
+        assert len(results) == 10
+        assert peak <= 3
+        assert strategy.analyze.await_count == 10
+        assert all(
+            result.tone_analysis is not None for result in results
+        )
+
+    asyncio.run(run_test())
+
+
+def test_tone_analysis_step_keeps_order_and_skips_analyzed() -> None:
+    async def run_test() -> None:
+        async def analyze(article: NewsArticle) -> ToneAnalysisResult:
+            await asyncio.sleep(random.random() / 100)
+            return ToneAnalysisResult(
+                negative_percentage=20,
+                positive_percentage=30,
+                neutral_percentage=50,
+            )
+
+        strategy = create_tone_strategy(AsyncMock(side_effect=analyze))
+        step = ToneAnalysisStep(strategy, max_concurrency=4)
+        existing_tone = ToneAnalysisResult(
+            negative_percentage=1,
+            positive_percentage=2,
+            neutral_percentage=97,
+        )
+        contexts = [
+            ArticleProcessingContext(
+                article=create_news_article(
+                    f"https://example.com/{index}"
+                ),
+                normalized_url=f"https://example.com/{index}",
+                tone_analysis=(
+                    existing_tone if index % 2 == 0 else None
+                ),
+            )
+            for index in range(10)
+        ]
+
+        results = await step.process(contexts)
+
+        assert [
+            result.normalized_url for result in results
+        ] == [context.normalized_url for context in contexts]
+        assert strategy.analyze.await_count == 5
+        assert results[0].tone_analysis is existing_tone
+
+    asyncio.run(run_test())
+
+
+def test_tone_analysis_step_rejects_non_positive_concurrency() -> None:
+    try:
+        ToneAnalysisStep(Mock(), max_concurrency=0)
+    except ValueError:
+        return
+
+    raise AssertionError("Expected a ValueError.")
+
+
+def test_tone_analysis_step_survives_a_failing_provider() -> None:
+    """One failing article must not discard the whole feed."""
+
+    async def run_test() -> None:
+        async def analyze(article: NewsArticle) -> ToneAnalysisResult:
+            if article.article_url.endswith("/1"):
+                raise RuntimeError("rate limit reached")
+
+            return ToneAnalysisResult(
+                negative_percentage=20,
+                positive_percentage=30,
+                neutral_percentage=50,
+            )
+
+        strategy = create_tone_strategy(AsyncMock(side_effect=analyze))
+        step = ToneAnalysisStep(strategy, max_concurrency=2)
+        contexts = [
+            ArticleProcessingContext(
+                article=create_news_article(
+                    f"https://example.com/{index}"
+                ),
+                normalized_url=f"https://example.com/{index}",
+            )
+            for index in range(3)
+        ]
+
+        results = await step.process(contexts)
+
+        assert [
+            result.tone_analysis is not None for result in results
+        ] == [True, False, True]
+
+    asyncio.run(run_test())
+
+
+def test_tone_analysis_step_skips_everything_when_unavailable() -> None:
+    """An exhausted provider must not be called once per article."""
+
+    async def run_test() -> None:
+        analyze = AsyncMock()
+        strategy = create_tone_strategy(
+            analyze,
+            ToneAnalysisAvailability.unavailable("no tokens left"),
+        )
+        step = ToneAnalysisStep(strategy, max_concurrency=2)
+        contexts = [
+            ArticleProcessingContext(
+                article=create_news_article(
+                    f"https://example.com/{index}"
+                ),
+                normalized_url=f"https://example.com/{index}",
+            )
+            for index in range(5)
+        ]
+
+        results = await step.process(contexts)
+
+        assert results == contexts
+        analyze.assert_not_awaited()
+        strategy.check_availability.assert_awaited_once()
+
+    asyncio.run(run_test())
+
+
+def test_tone_analysis_step_skips_check_when_nothing_is_pending() -> None:
+    async def run_test() -> None:
+        analyze = AsyncMock()
+        strategy = create_tone_strategy(analyze)
+        step = ToneAnalysisStep(strategy)
+        contexts = [
+            ArticleProcessingContext(
+                article=create_news_article("https://example.com/1"),
+                normalized_url="https://example.com/1",
+                tone_analysis=ToneAnalysisResult(
+                    negative_percentage=20,
+                    positive_percentage=30,
+                    neutral_percentage=50,
+                ),
+            )
+        ]
+
+        results = await step.process(contexts)
+
+        assert results == contexts
+        strategy.check_availability.assert_not_awaited()
+        analyze.assert_not_awaited()
+
+    asyncio.run(run_test())
+
+
+def test_tone_analysis_step_stops_after_the_provider_runs_out() -> None:
+    """A spent quota stops the batch instead of failing per article."""
+
+    async def run_test() -> None:
+        async def analyze(article: NewsArticle) -> ToneAnalysisResult:
+            raise ToneAnalysisUnavailableError("quota exceeded")
+
+        analyze_mock = AsyncMock(side_effect=analyze)
+        strategy = create_tone_strategy(analyze_mock)
+        step = ToneAnalysisStep(strategy, max_concurrency=1)
+        contexts = [
+            ArticleProcessingContext(
+                article=create_news_article(
+                    f"https://example.com/{index}"
+                ),
+                normalized_url=f"https://example.com/{index}",
+            )
+            for index in range(5)
+        ]
+
+        results = await step.process(contexts)
+
+        assert all(
+            result.tone_analysis is None for result in results
+        )
+        assert analyze_mock.await_count == 1
+
+    asyncio.run(run_test())
+
+
+def test_persistence_stores_articles_without_a_tone(tmp_path) -> None:
+    """A pending tone must not cost the article its place in the feed."""
+
+    async def run_test() -> None:
+        database_url = URL.create(
+            drivername="sqlite+aiosqlite",
+            database=str(tmp_path / "pending.db"),
+        )
+        engine = create_async_engine(database_url)
+        session_factory = async_sessionmaker(
+            engine,
+            expire_on_commit=False,
+        )
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+
+        persistence_service = ArticlePersistenceService(
+            session_factory=session_factory,
+            article_mapper=ProcessedArticleMapper(),
+        )
+        pending_url = "https://example.com/pending"
+        pending_context = ArticleProcessingContext(
+            article=create_news_article(pending_url),
+            normalized_url=pending_url,
+        )
+
+        assert await persistence_service.persist(
+            [pending_context],
+            source_id="test",
+        ) == 1
+
+        async with session_factory() as session:
+            article = await session.scalar(select(ArticleModel))
+            analysis_count = await session.scalar(
+                select(func.count()).select_from(ArticleAnalysisModel)
+            )
+            visible_articles = await ArticleRepository(
+                session
+            ).list_articles()
+
+        assert article is not None
+        assert article.normalized_url == pending_url
+        assert article.is_active is True
+        assert analysis_count == 0
+        #the inner join hides it until the tone analysis lands
+        assert visible_articles == []
+
+        #the retry attaches the analysis and the article shows up
+        assert await persistence_service.persist(
+            [
+                replace(
+                    pending_context,
+                    tone_analysis=ToneAnalysisResult(
+                        negative_percentage=20,
+                        positive_percentage=30,
+                        neutral_percentage=50,
+                    ),
+                    tone_analysis_metadata=ToneAnalysisMetadata(
+                        input_hash="input-hash",
+                        provider="random",
+                        model_name="random",
+                        prompt_version="v1",
+                    ),
+                )
+            ],
+            source_id="test",
+        ) == 0
+
+        async with session_factory() as session:
+            visible_articles = await ArticleRepository(
+                session
+            ).list_articles()
+
+        assert [
+            article.normalized_url for article in visible_articles
+        ] == [pending_url]
+
+        await engine.dispose()
+
+    asyncio.run(run_test())
+
+
+def test_persistence_keeps_unanalyzed_articles_active(tmp_path) -> None:
+    """Articles whose analysis failed must not be deactivated."""
+
+    async def run_test() -> None:
+        database_url = URL.create(
+            drivername="sqlite+aiosqlite",
+            database=str(tmp_path / "unanalyzed.db"),
+        )
+        engine = create_async_engine(database_url)
+        session_factory = async_sessionmaker(
+            engine,
+            expire_on_commit=False,
+        )
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+
+        persistence_service = ArticlePersistenceService(
+            session_factory=session_factory,
+            article_mapper=ProcessedArticleMapper(),
+        )
+        tone = ToneAnalysisResult(
+            negative_percentage=20,
+            positive_percentage=30,
+            neutral_percentage=50,
+        )
+        metadata = ToneAnalysisMetadata(
+            input_hash="input-hash",
+            provider="random",
+            model_name="random",
+            prompt_version="v1",
+        )
+
+        def build_context(url: str, analyzed: bool):
+            return ArticleProcessingContext(
+                article=create_news_article(url),
+                normalized_url=url,
+                tone_analysis=tone if analyzed else None,
+                tone_analysis_metadata=metadata if analyzed else None,
+            )
+
+        analyzed_url = "https://example.com/analyzed"
+        pending_url = "https://example.com/pending"
+
+        assert await persistence_service.persist(
+            [
+                build_context(analyzed_url, analyzed=True),
+                build_context(pending_url, analyzed=True),
+            ],
+            source_id="test",
+        ) == 2
+
+        #the second article fails analysis but is still in the feed
+        assert await persistence_service.persist(
+            [
+                build_context(analyzed_url, analyzed=True),
+                build_context(pending_url, analyzed=False),
+            ],
+            source_id="test",
+        ) == 0
+
+        async with session_factory() as session:
+            articles = await session.scalars(select(ArticleModel))
+            active_by_url = {
+                article.normalized_url: article.is_active
+                for article in articles
+            }
+
+        assert active_by_url[analyzed_url] is True
+        assert active_by_url[pending_url] is True
 
         await engine.dispose()
 

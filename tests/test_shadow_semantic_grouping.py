@@ -67,9 +67,7 @@ from app.semantic_grouping.services.ArticleEmbeddingService import (
 from app.semantic_grouping.services.SemanticGroupingExportService import (
     SemanticGroupingExportService,
 )
-from app.services.news_sources.NewsSourcePollingService import (
-    NewsSourcePollingService,
-)
+from app.scheduling.PeriodicScheduler import PeriodicScheduler
 from app.vectordb.models.ArticleEmbeddingModel import (
     ArticleEmbeddingModel,
 )
@@ -295,18 +293,28 @@ def test_calibration_requires_positive_pairs_from_multiple_events() -> None:
     assert reasons == []
 
 
-def test_polling_service_runs_grouping_in_shadow_mode() -> None:
+def test_scheduler_runs_grouping_in_shadow_mode() -> None:
     async def run_test() -> None:
         shadow_grouping_service = Mock()
-        shadow_grouping_service.run = AsyncMock()
-        service = NewsSourcePollingService(
-            sources=[],
-            pipeline=Mock(),
-            persistence_service=Mock(),
-            shadow_grouping_service=shadow_grouping_service,
+        completed = asyncio.Event()
+
+        async def run() -> None:
+            completed.set()
+
+        shadow_grouping_service.run = AsyncMock(side_effect=run)
+        scheduler = PeriodicScheduler(
+            name="semantic-grouping-shadow",
+            interval_seconds=3600,
+            task=shadow_grouping_service.run,
         )
 
-        assert await service.refresh_once() == 0
+        scheduler.start()
+        try:
+            async with asyncio.timeout(5):
+                await completed.wait()
+        finally:
+            await scheduler.stop()
+
         shadow_grouping_service.run.assert_awaited_once_with()
 
     asyncio.run(run_test())

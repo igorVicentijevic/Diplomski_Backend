@@ -23,6 +23,23 @@ successful fetch of their source remain stored but are marked inactive. The
 feeds are checked every 15 minutes while the API process is running, and the
 Articles API returns only active articles.
 
+The refresh runs on a fixed monotonic schedule, so a slow cycle does not delay
+the following ones; ticks missed by an overrunning cycle are skipped instead of
+being replayed. Feeds are fetched concurrently and a source that fails or
+exceeds `NEWS_SOURCE_FETCH_TIMEOUT_SECONDS` is skipped without affecting the
+others. Shadow semantic grouping is slower and is not needed for fresh
+articles, so it runs on its own, less frequent schedule
+(`SEMANTIC_GROUPING_INTERVAL_SECONDS`) instead of inside the refresh cycle.
+
+Scheduling and throughput settings:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `NEWS_REFRESH_INTERVAL_SECONDS` | `900` | How often the feeds are refreshed. |
+| `NEWS_SOURCE_FETCH_TIMEOUT_SECONDS` | `60` | Per-source fetch timeout. |
+| `TONE_ANALYSIS_MAX_CONCURRENCY` | `8` | Parallel tone analysis requests. |
+| `SEMANTIC_GROUPING_INTERVAL_SECONDS` | `3600` | Shadow grouping cadence. |
+
 Available endpoints:
 
 - `GET /`

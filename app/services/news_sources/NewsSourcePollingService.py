@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from contextlib import suppress
 
 from app.news_sources.INewsSource import INewsSource
 from app.pipeline.NewsArticleProcessingPipeline import (
@@ -9,81 +8,101 @@ from app.pipeline.NewsArticleProcessingPipeline import (
 from app.services.news_sources.ArticlePersistenceService import (
     ArticlePersistenceService,
 )
-from app.semantic_grouping.services.ShadowSemanticGroupingService import (
-    ShadowSemanticGroupingService,
+from app.services.news_sources.models.NewsSourceFetchResult import (
+    NewsSourceFetchResult,
 )
 
 logger = logging.getLogger(__name__)
 
 
 class NewsSourcePollingService:
-    REFRESH_INTERVAL_SECONDS = 15 * 60
+    """Fetches every configured feed once and persists the articles.
+
+    Scheduling is intentionally not handled here; a PeriodicScheduler
+    owns the cadence so that this service stays responsible only for a
+    single refresh.
+    """
+
+    FETCH_TIMEOUT_SECONDS = 60.0
 
     def __init__(
         self,
         sources: list[INewsSource],
         pipeline: NewsArticleProcessingPipeline,
         persistence_service: ArticlePersistenceService,
-        shadow_grouping_service: ShadowSemanticGroupingService | None = None,
-        refresh_interval_seconds: int = REFRESH_INTERVAL_SECONDS,
+        fetch_timeout_seconds: float = FETCH_TIMEOUT_SECONDS,
     ) -> None:
         self._sources = sources
         self._pipeline = pipeline
         self._persistence_service = persistence_service
-        self._shadow_grouping_service = shadow_grouping_service
-        self._refresh_interval_seconds = refresh_interval_seconds
-        self._task: asyncio.Task[None] | None = None
-
-    def start(self) -> None:
-        if self._task is None:
-            self._task = asyncio.create_task(self._poll())
-
-    async def stop(self) -> None:
-        if self._task is None:
-            return
-
-        self._task.cancel()
-
-        with suppress(asyncio.CancelledError):
-            await self._task
-
-        self._task = None
+        self._fetch_timeout_seconds = fetch_timeout_seconds
 
     async def refresh_once(self) -> int:
+        fetch_results = await self._fetch_all()
+
         changed_count = 0
+        for fetch_result in fetch_results:
+            if fetch_result.failed:
+                continue
 
-        #going through each news source to refresh articles
-        for source in self._sources:
-            try:
-                #fetching from RSS feed
-                articles = await source.fetch_articles()
-                processed_articles = (
-                    await self._pipeline.process(articles)
-                )
-
-                #persist the converted domain models to the database
-                changed_count += await self._persistence_service.persist(
-                    processed_articles,
-                    source_id=source.id,
-                )
-
-            except Exception:
-                logger.exception(
-                    "Could not refresh news source %s",
-                    source.display_name,
-                )
-
-        if self._shadow_grouping_service is not None:
-            try:
-                await self._shadow_grouping_service.run()
-            except Exception:
-                logger.exception(
-                    "Could not run semantic grouping in shadow mode."
-                )
+            changed_count += await self._process_and_persist(
+                fetch_result
+            )
 
         return changed_count
 
-    async def _poll(self) -> None:
-        while True:
-            await self.refresh_once()
-            await asyncio.sleep(self._refresh_interval_seconds)
+    async def _fetch_all(self) -> list[NewsSourceFetchResult]:
+        #feeds are independent, so their network waits are overlapped
+        return list(
+            await asyncio.gather(
+                *(
+                    self._fetch_source(source)
+                    for source in self._sources
+                )
+            )
+        )
+
+    async def _fetch_source(
+        self,
+        source: INewsSource,
+    ) -> NewsSourceFetchResult:
+        try:
+            async with asyncio.timeout(self._fetch_timeout_seconds):
+                articles = await source.fetch_articles()
+        except TimeoutError:
+            logger.warning(
+                "Timed out after %s seconds while fetching news "
+                "source %s",
+                self._fetch_timeout_seconds,
+                source.display_name,
+            )
+            return NewsSourceFetchResult(source=source, failed=True)
+        except Exception:
+            logger.exception(
+                "Could not fetch news source %s",
+                source.display_name,
+            )
+            return NewsSourceFetchResult(source=source, failed=True)
+
+        return NewsSourceFetchResult(source=source, articles=articles)
+
+    async def _process_and_persist(
+        self,
+        fetch_result: NewsSourceFetchResult,
+    ) -> int:
+        source = fetch_result.source
+        try:
+            processed_articles = await self._pipeline.process(
+                fetch_result.articles
+            )
+
+            return await self._persistence_service.persist(
+                processed_articles,
+                source_id=source.id,
+            )
+        except Exception:
+            logger.exception(
+                "Could not refresh news source %s",
+                source.display_name,
+            )
+            return 0
