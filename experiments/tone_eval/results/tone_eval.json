@@ -1,0 +1,64 @@
+{
+  "annotators": [
+    "ocenjivac_a",
+    "ocenjivac_b"
+  ],
+  "compared_items": 60,
+  "observed_agreement": 0.6,
+  "cohen_kappa_annotators": 0.3771626297577855,
+  "annotator_confusion": {
+    "pozitivan|pozitivan": 13,
+    "pozitivan|neutralan": 7,
+    "pozitivan|negativan": 1,
+    "neutralan|pozitivan": 8,
+    "neutralan|neutralan": 15,
+    "neutralan|negativan": 5,
+    "negativan|pozitivan": 1,
+    "negativan|neutralan": 2,
+    "negativan|negativan": 8
+  },
+  "consensus_size": 36,
+  "disputed_size": 24,
+  "consensus_distribution": {
+    "pozitivan": 13,
+    "neutralan": 15,
+    "negativan": 8
+  },
+  "model_accuracy": 0.5833333333333334,
+  "model_macro_f1": 0.597304856343758,
+  "cohen_kappa_model_consensus": 0.3669402110199297,
+  "per_class": [
+    {
+      "label": "pozitivan",
+      "support": 13,
+      "precision": 0.6,
+      "recall": 0.46153846153846156,
+      "f1": 0.5217391304347826
+    },
+    {
+      "label": "neutralan",
+      "support": 15,
+      "precision": 0.5333333333333333,
+      "recall": 0.5333333333333333,
+      "f1": 0.5333333333333333
+    },
+    {
+      "label": "negativan",
+      "support": 8,
+      "precision": 0.6363636363636364,
+      "recall": 0.875,
+      "f1": 0.7368421052631579
+    }
+  ],
+  "model_confusion": {
+    "pozitivan|pozitivan": 6,
+    "pozitivan|neutralan": 6,
+    "pozitivan|negativan": 1,
+    "neutralan|pozitivan": 4,
+    "neutralan|neutralan": 8,
+    "neutralan|negativan": 3,
+    "negativan|pozitivan": 0,
+    "negativan|neutralan": 1,
+    "negativan|negativan": 7
+  }
+}

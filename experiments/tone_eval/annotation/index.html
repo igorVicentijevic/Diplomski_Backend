@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<title>Означавање тона вести</title>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: "Segoe UI", system-ui, sans-serif; margin: 0;
+         background: #f2f4f7; color: #16212e; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 20px 64px; }
+  .bar { position: sticky; top: 0; background: #f2f4f7; padding: 14px 0 10px; }
+  .track { height: 8px; background: #d8dee7; border-radius: 4px; overflow: hidden; }
+  .fill { height: 100%; background: #1f5c8b; width: 0; transition: width .15s; }
+  .meta { display: flex; justify-content: space-between; font-size: 13px;
+          color: #55637a; margin-top: 8px; }
+  .card { background: #fff; border-radius: 12px; padding: 26px 28px;
+          box-shadow: 0 2px 10px rgba(20,35,60,.09); margin-top: 14px; }
+  .src { font-size: 13px; color: #6a7789; letter-spacing: .02em; }
+  h1 { font-size: 24px; line-height: 1.32; margin: 10px 0 16px; }
+  p.sum { font-size: 17px; line-height: 1.58; margin: 0; color: #2b3a4d; }
+  .btns { display: grid; grid-template-columns: repeat(3, 1fr);
+          gap: 12px; margin-top: 26px; }
+  button { font: inherit; font-size: 16px; padding: 16px 10px; cursor: pointer;
+           border: 2px solid #c7d0dc; border-radius: 10px; background: #fff; }
+  button:hover { border-color: #1f5c8b; }
+  button b { display: block; font-size: 13px; color: #7a869a; font-weight: 600; }
+  .nav { margin-top: 18px; display: flex; gap: 10px; align-items: center;
+         font-size: 14px; color: #55637a; }
+  .nav button { padding: 8px 14px; font-size: 14px; }
+  .done { text-align: center; padding: 60px 20px; }
+  .chip { display: inline-block; padding: 3px 10px; border-radius: 999px;
+          font-size: 12px; background: #e6edf5; color: #1f5c8b; }
+</style>
+</head>
+<body>
+<main>
+  <div class="bar">
+    <div class="track"><div class="fill" id="fill"></div></div>
+    <div class="meta"><span id="pos"></span><span id="left"></span></div>
+  </div>
+  <div id="view"></div>
+</main>
+<script>
+let items = [], labels = {}, i = 0;
+
+const NAMES = { positive: "позитиван", neutral: "неутралан", negative: "негативан" };
+
+async function boot() {
+  const data = await (await fetch("/items")).json();
+  items = data.items; labels = data.labels;
+  i = items.findIndex(it => !(it.item_id in labels));
+  if (i < 0) i = items.length;
+  render();
+}
+
+function render() {
+  const done = Object.keys(labels).length;
+  document.getElementById("fill").style.width = (done / items.length * 100) + "%";
+  document.getElementById("pos").textContent = "означено " + done + " / " + items.length;
+  document.getElementById("left").textContent = "преостало " + (items.length - done);
+
+  const view = document.getElementById("view");
+  if (i >= items.length) {
+    view.innerHTML = '<div class="card done"><h1>Готово</h1>' +
+      '<p class="sum">Све ставке су означене. Можеш затворити прозор и зауставити сервер.</p></div>';
+    return;
+  }
+  const it = items[i];
+  const current = labels[it.item_id];
+  view.innerHTML =
+    '<div class="card">' +
+      '<div class="src">' + it.ordinal + '. &nbsp;' + esc(it.source) +
+      ' &nbsp;·&nbsp; ' + esc(it.category) +
+      (current ? ' &nbsp;<span class="chip">означено: ' + NAMES[current] + '</span>' : '') +
+      '</div>' +
+      '<h1>' + esc(it.title) + '</h1>' +
+      '<p class="sum">' + esc(it.summary) + '</p>' +
+      '<div class="btns">' +
+        '<button onclick="pick(\'positive\')">позитиван<b>тастер 1</b></button>' +
+        '<button onclick="pick(\'neutral\')">неутралан<b>тастер 2</b></button>' +
+        '<button onclick="pick(\'negative\')">негативан<b>тастер 3</b></button>' +
+      '</div>' +
+      '<div class="nav">' +
+        '<button onclick="go(-1)">← претходна</button>' +
+        '<button onclick="go(1)">следећа →</button>' +
+        '<span>стрелице лево/десно за кретање</span>' +
+      '</div>' +
+    '</div>';
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+async function pick(label) {
+  const it = items[i];
+  labels[it.item_id] = label;
+  await fetch("/label", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ item_id: it.item_id, label })
+  });
+  i++;
+  render();
+}
+
+function go(d) { i = Math.max(0, Math.min(items.length, i + d)); render(); }
+
+document.addEventListener("keydown", e => {
+  if (e.key === "1") pick("positive");
+  else if (e.key === "2") pick("neutral");
+  else if (e.key === "3") pick("negative");
+  else if (e.key === "ArrowLeft") go(-1);
+  else if (e.key === "ArrowRight") go(1);
+});
+
+boot();
+</script>
+</body>
+</html>
